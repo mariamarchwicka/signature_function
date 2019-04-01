@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import collections
+import sys
 
 
 def mod_one(n):
@@ -29,8 +30,8 @@ class av_signature_function(object):
         for jump_arg, jump in values:
             assert 0 <= jump_arg < 1, \
                 "Signature function is defined on the interval [0, 1)."
-################################### what for += ???
             self.data[jump_arg] = jump
+
 
     def value(self, arg):
         # Compute the value of the signature function at the point arg.
@@ -45,7 +46,6 @@ class av_signature_function(object):
                 val += jump
         return val
 
-############## what for - it is == 0
     def total_sign_jump(self):
         # Total signature jump is the sum of all jumps.
         a = sum([j[1] for j in self.to_list()])
@@ -53,6 +53,23 @@ class av_signature_function(object):
         # print b
         assert a == b
         return sum(self.data.values())
+
+    def total_absolute_sign_jump(self):
+        # Total signature jump is the sum of all jumps.
+        a = sum([abs(j[1]) for j in self.to_list()])
+        # b = sum(self.data.values())
+        # print b
+        # assert a == b
+        return a
+
+
+    def double_cover(self):
+        new_data = []
+        for jump_arg, jump in self.data.items():
+            new_data.append((mod_one(jump_arg/2), jump))
+            new_data.append((mod_one(1/2 + jump_arg/2), jump))
+        return av_signature_function(new_data)
+
 
     def to_list(self):
         # Return signature jumps formated as a list
@@ -115,22 +132,177 @@ class av_signature_function(object):
         return self
 
     def __add__(self, other):
+        new_one = av_signature_function()
+        new_data = collections.defaultdict(int)
         for jump_arg, jump in other.data.items():
-            self.data[jump_arg] += jump
-        return self
+            new_data[jump_arg] = jump + self.data.get(jump_arg, 0)
+            try:
+                int(jump_arg)
+            except:
+                print jump_arg
+        for jump_arg, jump in self.data.items():
+            if jump_arg not in new_data.keys():
+                new_data[jump_arg] = self.data[jump_arg]
+
+        new_one.data = new_data
+        return new_one
 
     def __str__(self):
         return '\n'.join([str(jump_arg) + ": " + str(jump)
-                          for jump_arg, jump in self.data.items()])
+                          for jump_arg, jump in sorted(self.data.items())])
 
     def __repr__(self):
         return self.__str__()
 
+# 9.8
+# ksi = exp( (2 PI * i) / (2k + 1))
+# blanchfield = lambda_even + lambda_odd
 
-def untw_signature(k):
-    # Return the signature function of the T_{2,2k+1} torus knot.
-    l = ([((2 * a + 1)/(4 * k + 2), -1) for a in range(k)] +
-         [((2 * a + 1)/(4 * k + 2), 1) for a in range(k + 1, 2 * k + 1)])
-    # print l
-    # print type(l)
-    return av_signature_function(l)
+def get_twisted_signature_function(k_n, theta):
+    results = []
+    k = abs(k_n)
+
+    ksi = 1/(2 * k + 1)
+    # lambda_odd (theta + e) % 2 == 0:
+    for e in range(1, k + 1):
+        if (theta + e) % 2 != 0:
+            results.append((e * ksi, 1 * sgn(k_n)))
+            results.append((1 - e * ksi, -1 * sgn(k_n)))
+    # lambda_even
+    # print "normal"
+    for e in range(1, theta):
+        if (theta + e) % 2 == 0:
+            # print e * ksi, ": 1"
+            # print 1 - e * ksi, ": -1 "
+            results.append((e * ksi, 1 * sgn(k_n)))
+            results.append((1 - e * ksi, -1 * sgn(k_n)))
+
+    # print "reversed"
+    for e in range(theta + 1, k + 1):
+        if (theta + e) % 2 != 0:
+            continue
+        # print e * ksi, ": -1"
+        # print 1 - e * ksi, ": 1 "
+        results.append((e * ksi, -1 * sgn(k_n)))
+        results.append((1 - e * ksi, 1 * sgn(k_n)))
+    return av_signature_function(results)
+
+def get_blanchfield(t, k):
+    p = 2
+    q = 2 * k + 1
+    sigma_set = get_sigma_set(p, q)
+    sigma = len(sigma_set) - 2 * len([z for z in sigma_set if t < z < 1 + t])
+    return sigma
+
+def get_sigma_set(p, q):
+    sigma_set = set()
+    for i in range(1, p):
+        for j in range(1, q):
+            sigma_set.add(j/q + i/p)
+    return sigma_set
+
+# Bl_theta(K'_(2, d) = Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t) + Bl(K')(ksi_l^theta * t)
+
+def get_cable_signature_as_theta_function(*arg):
+    if len(arg) < 2:
+        print "It is not a cable"
+        return None
+    def signture_function(theta):
+        if theta > abs(arg[-1]):
+            print "k for pattern is " + str(arg[-1])
+            print "theta shouldn't be larger than this"
+            return None
+        if theta == 0:
+            cable_signature = get_untwisted_signutere_function(arg[-1])
+        else:
+            cable_signature = get_twisted_signature_function(arg[-1], theta)
+
+        for i, k_i in enumerate(arg[:-1][::-1]):
+            k = abs(k_i)
+            ksi = 1/(2 * k + 1)
+            power = 2^i
+            a = get_untwisted_signutere_function(k_i)
+            shift = theta * ksi * power
+            b = a >> shift
+            c = a << shift
+            for _ in range(i):
+                b = b.double_cover()
+                c = c.double_cover()
+            b += c
+            cable_signature += b
+        return cable_signature
+    return signture_function
+
+
+
+def get_untwisted_signutere_function(*arg):
+    signture_function = av_signature_function([(0, 0)])
+    for k_i in arg:
+        k = abs(k_i)
+        # Return the signature function of the T_{2,2k+1} torus knot.
+        l = ([((2 * a + 1)/(4 * k + 2), -1 * sgn(k_i)) for a in range(k)] +
+             [((2 * a + 1)/(4 * k + 2), 1 * sgn(k_i)) for a in range(k + 1, 2 * k + 1)])
+        signture_function += av_signature_function(l)
+    return signture_function
+
+def get_function_of_theta_for_sum(*arg):
+    def signture_function_for_sum(*thetas):
+        if len(thetas) != len(arg) - 1:
+            print "For each cable one theta value should be given"
+            return None
+        signature_function = get_untwisted_signutere_function(*arg[0])
+        for i, knot in enumerate(arg[1:]):
+            signature_function += (get_cable_signature_as_theta_function(*knot))(thetas[i])
+        return signature_function
+    return signture_function_for_sum
+
+
+def tmp(limit=None):
+    if limit is None:
+        limit = 10
+    for k_0 in range(1, limit):
+        for k_1 in range(1, limit):
+            for k_2 in range(1, limit):
+                for k_3 in range(1, limit):
+                    F = get_function_of_theta_for_sum([k_3, -k_2], [-k_0, -k_1, -k_3], [k_0, k_1, k_2])
+                    for theta_0 in range(k_3 + 1):
+                        for theta_1 in range(k_2 + 1):
+                            f = F(theta_0, theta_1)
+                            if f.total_absolute_sign_jump() != 0 and theta_1 + theta_0 == 0:
+                                    print 4 * "\n"
+                                    print "OJOJOJOJJOOJJOJJ!!!!!!!!!!"
+                                    print k_0, k_1, k_2, k_3
+                                    print theta_0, theta_1
+
+                            if f.total_absolute_sign_jump() == 0 and theta_1 + theta_0 != 0:
+                                # print "HURA"
+                                # print k_0, k_1, k_2, k_3
+                                # print theta_0, theta_1
+                                if k_2 != k_3 or theta_0 != theta_1:
+                                    print 4 * "\n"
+                                    print " SUPER!!!!!!!!!!"
+                                    print k_0, k_1, k_2, k_3
+                                    print theta_0, theta_1
+
+                    for k_4 in range(1, limit):
+                        F = get_function_of_theta_for_sum([], [k_0, k_1, k_2], [k_3, k_4], [-k_0, -k_3, -k_4], [-k_1, -k_2])
+                        for theta_0 in range(k_2 + 1):
+                            for theta_1 in range(k_4 + 1):
+                                for theta_2 in range(k_4 + 1):
+                                    for theta_3 in range(k_2 + 1):
+                                        f = F(theta_0, theta_1, theta_2, theta_3)
+                                        if f.total_absolute_sign_jump() != 0 and theta_1 + theta_0 + theta_3 + theta_2 == 0:
+                                                print 4 * "\n"
+                                                print "2 OJOJOJOJJOOJJOJJ!!!!!!!!!!"
+                                                print k_0, k_1, k_2, k_3, k_4
+                                                print theta_0, theta_1, theta_2, theta_3
+
+                                        if f.total_absolute_sign_jump() == 0 and theta_1 + theta_0 + theta_3 + theta_2 != 0:
+                                            # print "HURA"
+                                            # print k_0, k_1, k_2, k_3
+                                            # print theta_0, theta_1
+                                            if k_2 != k_3 or theta_0 != theta_1:
+                                                print 4 * "\n"
+                                                print "2 SUPER!!!!!!!!!!"
+                                                print k_0, k_1, k_2, k_3, k_4
+                                                print theta_0, theta_1, theta_2, theta_3
