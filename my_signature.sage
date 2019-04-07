@@ -1,19 +1,19 @@
 #!/usr/bin/env python
+
 import collections
 import sys
 
 
 def mod_one(n):
     """This function returns the fractional part of some number."""
-    if n >= 1:
-        return mod_one(n - 1)
+    n -= int(n)
     if n < 0:
-        return mod_one(n + 1)
+        n += 1
     return n
 
 
 class av_signature_function(object):
-    '''
+    """
     This simple class encodes twisted and untwisted signature functions
     of knots. Since the signature function is entirely encoded by its signature
     jump, the class stores only information about signature jumps
@@ -22,7 +22,7 @@ class av_signature_function(object):
     where the key is the argument at which the functions jumps
     and value encodes the value of the jump. Remember that we treat
     signature functions as defined on the interval [0,1).
-    '''
+    """
     def __init__(self, values=[]):
         # We will store data of signature jumps here.
         self.data = collections.defaultdict(int)
@@ -46,22 +46,17 @@ class av_signature_function(object):
                 val += jump
         return val
 
-    def total_sign_jump(self):
+    def sum_of_values(self):
         # Total signature jump is the sum of all jumps.
         a = sum([j[1] for j in self.to_list()])
         b = sum(self.data.values())
         # print b
         assert a == b
+        assert a == 0
         return sum(self.data.values())
 
-    def total_absolute_sign_jump(self):
-        # Total signature jump is the sum of all jumps.
-        a = sum([abs(j[1]) for j in self.to_list()])
-        # b = sum(self.data.values())
-        # print b
-        # assert a == b
-        return a
-
+    def sum_of_absolute_values(self):
+        return sum([abs(i) for i in self.data.values()])
 
     def double_cover(self):
         new_data = []
@@ -80,7 +75,7 @@ class av_signature_function(object):
         # by the plot function.
         l = self.to_list()
         vals = ([(d[0], sum(2 * j[1] for j in l[:l.index(d)+1])) for d in l] +
-                [(0, self.data[0]), (1, self.total_sign_jump())])
+                [(0, self.data[0]), (1, self.sum_of_values())])
         return vals
 
     def plot(self):
@@ -172,17 +167,12 @@ def get_twisted_signature_function(k_n, theta):
     # print "normal"
     for e in range(1, theta):
         if (theta + e) % 2 == 0:
-            # print e * ksi, ": 1"
-            # print 1 - e * ksi, ": -1 "
             results.append((e * ksi, 1 * sgn(k_n)))
             results.append((1 - e * ksi, -1 * sgn(k_n)))
-
     # print "reversed"
     for e in range(theta + 1, k + 1):
         if (theta + e) % 2 != 0:
             continue
-        # print e * ksi, ": -1"
-        # print 1 - e * ksi, ": 1 "
         results.append((e * ksi, -1 * sgn(k_n)))
         results.append((1 - e * ksi, 1 * sgn(k_n)))
     return av_signature_function(results)
@@ -204,9 +194,6 @@ def get_sigma_set(p, q):
 # Bl_theta(K'_(2, d) = Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t) + Bl(K')(ksi_l^theta * t)
 
 def get_cable_signature_as_theta_function(*arg):
-    if len(arg) < 2:
-        print "It is not a cable"
-        return None
     def signture_function(theta):
         if theta > abs(arg[-1]):
             print "k for pattern is " + str(arg[-1])
@@ -233,8 +220,6 @@ def get_cable_signature_as_theta_function(*arg):
         return cable_signature
     return signture_function
 
-
-
 def get_untwisted_signutere_function(*arg):
     signture_function = av_signature_function([(0, 0)])
     for k_i in arg:
@@ -256,6 +241,73 @@ def get_function_of_theta_for_sum(*arg):
         return signature_function
     return signture_function_for_sum
 
+def first_sum(k_0, k_1, k_2, k_3):
+    F = get_function_of_theta_for_sum([k_3, -k_2], [-k_0, -k_1, -k_3], [k_0, k_1, k_2])
+    for theta_0 in range(k_3 + 1):
+        for theta_1 in range(k_2 + 1):
+            f = F(theta_0, theta_1)
+            f.sum_of_values()
+            if f.sum_of_absolute_values() != 0 and theta_1 + theta_0 == 0:
+                    print 4 * "\n"
+                    print "OJOJOJOJJOOJJOJJ!!!!!!!!!!"
+                    print k_0, k_1, k_2, k_3
+                    print theta_0, theta_1
+
+            if f.sum_of_absolute_values() == 0 and theta_1 + theta_0 != 0:
+                # print "HURA"
+                # print k_0, k_1, k_2, k_3
+                # print theta_0, theta_1
+                if k_2 != k_3 or theta_0 != theta_1:
+                    print 4 * "\n"
+                    print " SUPER!!!!!!!!!!"
+                    print k_0, k_1, k_2, k_3
+                    print theta_0, theta_1
+
+def second_sum(k_0, k_1, k_2, k_3, k_4):
+    F = get_function_of_theta_for_sum([], [k_0, k_1, k_2], [k_3, k_4], [-k_0, -k_3, -k_4], [-k_1, -k_2])
+    for theta_0 in range(k_2 + 1):
+        for theta_1 in range(k_4 + 1):
+            for theta_2 in range(k_4 + 1):
+                for theta_3 in range(k_2 + 1):
+                    f = F(theta_0, theta_1, theta_2, theta_3)
+                    if f.sum_of_absolute_values() != 0 and theta_1 + theta_0 + theta_3 + theta_2 == 0:
+                            print 4 * "\n"
+                            print "2 OJOJOJOJJOOJJOJJ!!!!!!!!!!"
+                            print k_0, k_1, k_2, k_3, k_4
+                            print theta_0, theta_1, theta_2, theta_3
+
+                    if f.sum_of_absolute_values() == 0 and theta_1 + theta_0 + theta_3 + theta_2 != 0:
+                        # print "HURA"
+                        # print k_0, k_1, k_2, k_3
+                        # print theta_0, theta_1
+                        if k_2 != k_3 or theta_0 != theta_1:
+                            print 4 * "\n"
+                            print "2 SUPER!!!!!!!!!!"
+                            print k_0, k_1, k_2, k_3, k_4
+                            print theta_0, theta_1, theta_2, theta_3
+
+def third_sum(k_0, k_1, k_2, k_3, k_4, k_5, k_6, k_7, k_8):
+    F = get_function_of_theta_for_sum([], [k_0, k_1, k_2], [k_3, k_4], [-k_5, -k_6, -k_7], [-k_8, -k_8])
+    for theta_0 in range(k_2 + 1):
+        for theta_1 in range(k_4 + 1):
+            for theta_2 in range(k_4 + 1):
+                for theta_3 in range(k_2 + 1):
+                    f = F(theta_0, theta_1, theta_2, theta_3)
+                    if f.sum_of_absolute_values() != 0 and theta_1 + theta_0 + theta_3 + theta_2 == 0:
+                            print 4 * "\n"
+                            print "3 OJOJOJOJJOOJJOJJ!!!!!!!!!!"
+                            print k_0, k_1, k_2, k_3, k_4
+                            print theta_0, theta_1, theta_2, theta_3
+
+                    if f.sum_of_absolute_values() == 0 and theta_1 + theta_0 + theta_3 + theta_2 != 0:
+                        # print "HURA"
+                        # print k_0, k_1, k_2, k_3
+                        # print theta_0, theta_1
+                        if k_2 != k_3 or theta_0 != theta_1:
+                            print 4 * "\n"
+                            print "3 SUPER!!!!!!!!!!"
+                            print k_0, k_1, k_2, k_3, k_4
+                            print theta_0, theta_1, theta_2, theta_3
 
 def tmp(limit=None):
     if limit is None:
@@ -264,45 +316,6 @@ def tmp(limit=None):
         for k_1 in range(1, limit):
             for k_2 in range(1, limit):
                 for k_3 in range(1, limit):
-                    F = get_function_of_theta_for_sum([k_3, -k_2], [-k_0, -k_1, -k_3], [k_0, k_1, k_2])
-                    for theta_0 in range(k_3 + 1):
-                        for theta_1 in range(k_2 + 1):
-                            f = F(theta_0, theta_1)
-                            if f.total_absolute_sign_jump() != 0 and theta_1 + theta_0 == 0:
-                                    print 4 * "\n"
-                                    print "OJOJOJOJJOOJJOJJ!!!!!!!!!!"
-                                    print k_0, k_1, k_2, k_3
-                                    print theta_0, theta_1
-
-                            if f.total_absolute_sign_jump() == 0 and theta_1 + theta_0 != 0:
-                                # print "HURA"
-                                # print k_0, k_1, k_2, k_3
-                                # print theta_0, theta_1
-                                if k_2 != k_3 or theta_0 != theta_1:
-                                    print 4 * "\n"
-                                    print " SUPER!!!!!!!!!!"
-                                    print k_0, k_1, k_2, k_3
-                                    print theta_0, theta_1
-
+                    first_sum(k_0, k_1, k_2, k_3)
                     for k_4 in range(1, limit):
-                        F = get_function_of_theta_for_sum([], [k_0, k_1, k_2], [k_3, k_4], [-k_0, -k_3, -k_4], [-k_1, -k_2])
-                        for theta_0 in range(k_2 + 1):
-                            for theta_1 in range(k_4 + 1):
-                                for theta_2 in range(k_4 + 1):
-                                    for theta_3 in range(k_2 + 1):
-                                        f = F(theta_0, theta_1, theta_2, theta_3)
-                                        if f.total_absolute_sign_jump() != 0 and theta_1 + theta_0 + theta_3 + theta_2 == 0:
-                                                print 4 * "\n"
-                                                print "2 OJOJOJOJJOOJJOJJ!!!!!!!!!!"
-                                                print k_0, k_1, k_2, k_3, k_4
-                                                print theta_0, theta_1, theta_2, theta_3
-
-                                        if f.total_absolute_sign_jump() == 0 and theta_1 + theta_0 + theta_3 + theta_2 != 0:
-                                            # print "HURA"
-                                            # print k_0, k_1, k_2, k_3
-                                            # print theta_0, theta_1
-                                            if k_2 != k_3 or theta_0 != theta_1:
-                                                print 4 * "\n"
-                                                print "2 SUPER!!!!!!!!!!"
-                                                print k_0, k_1, k_2, k_3, k_4
-                                                print theta_0, theta_1, theta_2, theta_3
+                        second_sum(k_0, k_1, k_2, k_3, k_4)
