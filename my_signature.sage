@@ -2,6 +2,7 @@
 
 import collections
 import sys
+import os
 import inspect
 import pandas as pd
 import itertools as it
@@ -9,7 +10,7 @@ import itertools as it
 
 class MySettings(object):
     def __init__(self):
-        k = 0
+        self.f_results = os.path.join(os.getcwd(), "results.out")
 
 def main(arg):
     my_settings = MySettings()
@@ -19,16 +20,19 @@ def main(arg):
         tests()
 
 
-
 def tests(limit=10):
+
     for comb in it.combinations_with_replacement(range(1, limit + 1), 5):
-        knot_description, null_comb, all_comb = second_sum(*comb)
-        if null_comb^2 >= all_comb:
-            print "\n\nHURA!!"
-            print comb
+        k_0, k_1, k_2, k_3, k_4 = comb
+
+        knot_sum = [[k_0, k_1, k_2], [k_3, k_4], [-k_0, -k_3, -k_4], [-k_1, -k_2]]
+
+        result = eval_cable_for_thetas(knot_sum)
+        if result is not None:
+            knot_description, null_comb, all_comb = result
+            print 3 * "\nHURA"
             print knot_description
-            print "Zero cases: " + str(null_comb)
-            print "All cases: " + str(all_comb)
+            print null_comb, all_comb
     # for comb in it.combinations_with_replacement(range(1, limit + 1), 4):
     #     print comb
     #     print first_sum(*comb)
@@ -231,35 +235,45 @@ def mod_one(n):
 
 # ###################### TEMPORARY TESTS #########
 
-# def first_sum(*arg):
-#     k_0, k_1, k_2, k_3 = arg
-#     F = get_function_of_theta_for_sum([k_3], [-k_2],
-#                                       [-k_0, -k_1, -k_3],
-#                                       [k_0, k_1, k_2])
-#     all_combinations = (k_3 + 1) * (k_2 + 1) * (k_3 + 1) * (k_2 + 1)
-#     null_combinations = 0
-#     non_trivial_zeros = 0
-#     for v_theta in it.product(range(k_3 + 1), range(k_2 + 1),
-#                               range(k_3 + 1), range(k_2 + 1)):
-#         f = F(*v_theta)
-#         if f.sum_of_absolute_values() != 0 and sum(v_theta) == 0:
-#                 print 4 * "\n" + "something wrong!!!!!!!!!!"
-#                 print inspect.stack()[0][3]
-#                 print arg
-#                 print v_theta
-#
-#         if f.sum_of_absolute_values() == 0:
-#             null_combinations += 1
-#             if sum(v_theta) != 0:
-#                 if len(arg) == len(set(arg)) and len(set(v_theta)) > 1:
-#                     non_trivial_zeros += 1
-#                     # print "\nNontrivial zero"
-#                     # print inspect.stack()[0][3]
-#                     print arg
-#                     print v_theta
-#                     print
-#     return non_trivial_zeros, null_combinations, all_combinations
-
+# first_sum
+# F = get_function_of_theta_for_sum([k_3], [-k_2],
+#                                   [-k_0, -k_1, -k_3],
+#                                   [k_0, k_1, k_2])
+def eval_cable_for_thetas(knot_sum):
+    F = get_function_of_theta_for_sum(*knot_sum)
+    knot_description = get_knot_descrption(*knot_sum)
+    all_combinations = get_number_of_combinations(*knot_sum)
+    null_combinations = 1
+    # non_trivial_zeros = 0
+    theta_limits = []
+    ranges_list = []
+    for knot in knot_sum:
+        ranges_list.append(range(abs(knot[-1]) + 1))
+    null_combinations = 1
+    good_theta_combinations = []
+    for v_theta in it.product(*ranges_list):
+        f = F(*v_theta)
+        assert f.sum_of_absolute_values() == 0 or sum(v_theta) != 0
+        if f.sum_of_absolute_values() == 0 and sum(v_theta) != 0:
+            good_theta_combinations.append(v_theta)
+            m = len([theta for theta in v_theta if theta != 0])
+            null_combinations += 2^m
+            # if len(arg) == len(set(arg)) and len(set(v_theta)) > 1:
+            #     non_trivial_zeros += 1
+            #     print "\nNontrivial zero"
+            #     print arg
+            #     print v_theta
+            #     print
+    if null_combinations^2 >= all_combinations:
+        print "\n\nHURA!!"
+        print
+        print knot_description
+        print "Zero cases: " + str(null_combinations)
+        print "All cases: " + str(all_combinations)
+        for el in good_theta_combinations:
+            print el
+        return knot_description, null_combinations, all_combinations
+    return None
 
 def get_knot_descrption(*arg):
     description = ""
@@ -276,33 +290,8 @@ def get_knot_descrption(*arg):
 def get_number_of_combinations(*arg):
     number_of_combinations = 1
     for knot in arg:
-        number_of_combinations *= (2 * knot[-1] + 1)
+        number_of_combinations *= (2 * abs(knot[-1]) + 1)
     return number_of_combinations
-
-def second_sum(*arg):
-    k_0, k_1, k_2, k_3, k_4 = arg
-    knot_sum = [[k_0, k_1, k_2], [k_3, k_4], [-k_0, -k_3, -k_4], [-k_1, -k_2]]
-    F = get_function_of_theta_for_sum(*knot_sum)
-    knot_description = get_knot_descrption(*knot_sum)
-    all_combinations = get_number_of_combinations(*knot_sum)
-    null_combinations = 1
-    # non_trivial_zeros = 0
-
-    for v_theta in it.product(range(k_2 + 1), range(k_4 + 1),
-                              range(k_4 + 1), range(k_2 + 1)):
-        f = F(*v_theta)
-        assert f.sum_of_absolute_values() == 0 or sum(v_theta) != 0
-        if f.sum_of_absolute_values() == 0 and sum(v_theta) != 0:
-            null_combinations += 2
-            # if len(arg) == len(set(arg)) and len(set(v_theta)) > 1:
-            #     non_trivial_zeros += 1
-            #     print "\nNontrivial zero"
-            #     print inspect.stack()[0][3]
-            #     print arg
-            #     print v_theta
-            #     print
-    return knot_description, null_combinations, all_combinations
-
 
 if __name__ == '__main__' and '__file__' in globals():
     main(sys.argv)
