@@ -6,46 +6,59 @@ import os
 import inspect
 import pandas as pd
 import itertools as it
+import re
 
 
 class MySettings(object):
     def __init__(self):
         self.f_results = os.path.join(os.getcwd(), "results.out")
         self.only_slice_candidates = True
+        self.only_slice_candidates = False
+        self.default_limit = 3
 
 
 def main(arg):
     try:
-        tests(int(arg[1]))
+        limit = int(arg[1])
     except:
-        tests()
+        limit = None
+    second_knot_sum_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
+                                [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
+    first_knot_sum_formula = "[[k[0], k[1], k[2]], [k[3]],\
+                                [-k[0], -k[1], -k[3]], [-k[2]]]"
+    tests(second_knot_sum_formula, limit)
+    tests(first_knot_sum_formula, limit)
 
 
-def tests(limit=10):
-    k_size = 5
+def is_trivial_combination(knot_sum):
+    if len(knot_sum) == 4:
+        oposit_to_first = [-k for k in knot_sum[0]]
+        if oposit_to_first in knot_sum:
+            return True
+    return False
+
+
+def tests(knot_sum_formula, limit=None):
     settings = MySettings()
-    knot_sum_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
-                        [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
+    if limit is None:
+        limit = settings.default_limit
 
-    # F = get_function_of_theta_for_sum([k_3], [-k_2],
-    #                                   [-k_0, -k_1, -k_3],
-    #                                   [k_0, k_1, k_2])
+    k_vector_size = extract_max(knot_sum_formula) + 1
 
     with open(settings.f_results, 'w') as f_results:
         combinations = it.combinations_with_replacement(range(1, limit + 1),
-                                                        k_size)
+                                                        k_vector_size)
         for comb in combinations:
-            if settings.only_slice_candidates:
-                k = [comb[0], 4 * comb[0] + comb[1],
+            if settings.only_slice_candidates and k_vector_size == 5:
+                comb = [comb[0], 4 * comb[0] + comb[1],
                      4 * (4 * comb[0] + comb[1]) + comb[2],
                      4 * comb[0] + comb[3],
                      4 * (4 * comb[0] + comb[3]) + comb[4]]
-            else:
-                k = comb
-
-            if k[3] == k[1] and k[2] == k[4]:
-                continue
+            k = comb
             knot_sum = eval(knot_sum_formula)
+
+            if is_trivial_combination(knot_sum):
+                continue
             result = eval_cable_for_thetas(knot_sum)
             if result is not None:
                 knot_description, null_comb, all_comb = result
@@ -280,6 +293,11 @@ def get_number_of_combinations(*arg):
     for knot in arg:
         number_of_combinations *= (2 * abs(knot[-1]) + 1)
     return number_of_combinations
+
+def extract_max(string):
+     numbers = re.findall('\d+',string)
+     numbers = map(int,numbers)
+     return max(numbers)
 
 
 if __name__ == '__main__' and '__file__' in globals():
