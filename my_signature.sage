@@ -11,6 +11,7 @@ import itertools as it
 class MySettings(object):
     def __init__(self):
         self.f_results = os.path.join(os.getcwd(), "results.out")
+        self.only_slice_candidates = True
 
 
 def main(arg):
@@ -21,12 +22,29 @@ def main(arg):
 
 
 def tests(limit=10):
+    k_size = 5
     settings = MySettings()
     knot_sum_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
                         [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
 
+    # F = get_function_of_theta_for_sum([k_3], [-k_2],
+    #                                   [-k_0, -k_1, -k_3],
+    #                                   [k_0, k_1, k_2])
+
     with open(settings.f_results, 'w') as f_results:
-        for k in it.combinations_with_replacement(range(1, limit + 1), 5):
+        combinations = it.combinations_with_replacement(range(1, limit + 1),
+                                                        k_size)
+        for comb in combinations:
+            if settings.only_slice_candidates:
+                k = [comb[0], 4 * comb[0] + comb[1],
+                     4 * (4 * comb[0] + comb[1]) + comb[2],
+                     4 * comb[0] + comb[3],
+                     4 * (4 * comb[0] + comb[3]) + comb[4]]
+            else:
+                k = comb
+
+            if k[3] == k[1] and k[2] == k[4]:
+                continue
             knot_sum = eval(knot_sum_formula)
             result = eval_cable_for_thetas(knot_sum)
             if result is not None:
@@ -34,10 +52,6 @@ def tests(limit=10):
                 line = (str(k) + ", " + str(null_comb) + ", " +
                         str(all_comb) + "\n")
                 f_results.write(line)
-
-        # for comb in it.combinations_with_replacement(range(1, limit + 1), 4):
-        #     print comb
-        #     print first_sum(*comb)
 
 
 class SignatureFunction(object):
@@ -169,8 +183,7 @@ def get_cable_signature_as_theta_function(*arg):
             for _ in range(i):
                 b = b.double_cover()
                 c = c.double_cover()
-            b += c
-            cable_signature += b
+            cable_signature += b + c
         return cable_signature
     return signture_function
 
@@ -219,43 +232,32 @@ def mod_one(n):
     return n - floor(n)
 
 
-# ###################### TEMPORARY TESTS #########
-
-# first_sum
-# F = get_function_of_theta_for_sum([k_3], [-k_2],
-#                                   [-k_0, -k_1, -k_3],
-#                                   [k_0, k_1, k_2])
 def eval_cable_for_thetas(knot_sum):
-    F = get_function_of_theta_for_sum(*knot_sum)
+
+    f = get_function_of_theta_for_sum(*knot_sum)
     knot_description = get_knot_descrption(*knot_sum)
     all_combinations = get_number_of_combinations(*knot_sum)
-    null_combinations = 1
-    # non_trivial_zeros = 0
-    theta_limits = []
-    ranges_list = []
-    for knot in knot_sum:
-        ranges_list.append(range(abs(knot[-1]) + 1))
-    null_combinations = 1
-    good_theta_combinations = []
+
+    null_combinations = 0
+    zero_theta_combinations = []
+
+    ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
     for v_theta in it.product(*ranges_list):
-        f = F(*v_theta)
-        assert f.sum_of_absolute_values() == 0 or sum(v_theta) != 0
-        if f.sum_of_absolute_values() == 0 and sum(v_theta) != 0:
-            good_theta_combinations.append(v_theta)
+
+        if f(*v_theta).sum_of_absolute_values() == 0:
+            zero_theta_combinations.append(v_theta)
             m = len([theta for theta in v_theta if theta != 0])
             null_combinations += 2^m
-            # if len(arg) == len(set(arg)) and len(set(v_theta)) > 1:
-            #     non_trivial_zeros += 1
-            #     print "\nNontrivial zero"
-            #     print arg
-            #     print v_theta
-            #     print
+        else:
+            assert sum(v_theta) != 0
+
     if null_combinations^2 >= all_combinations:
         print
         print knot_description
         print "Zero cases: " + str(null_combinations)
         print "All cases: " + str(all_combinations)
-        for el in good_theta_combinations:
+        print "Zero theta combinations: "
+        for el in zero_theta_combinations:
             print el
         return knot_description, null_combinations, all_combinations
     return None
@@ -269,8 +271,7 @@ def get_knot_descrption(*arg):
         description += "T("
         for k in knot:
             description += "2, " + str(2 * abs(k) + 1) + "; "
-        description = description[:-2]
-        description += ") # "
+        description = description[:-2] + ") # "
     return description[:-3]
 
 
