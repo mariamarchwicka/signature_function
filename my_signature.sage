@@ -129,6 +129,24 @@ class SignatureFunction(object):
             new_data.append((mod_one(1/2 + jump_arg/2), jump))
         return SignatureFunction(new_data)
 
+    def square_root(self):
+        # to read values for t^(1/2)
+        new_data = []
+        for jump_arg, jump in self.data.items():
+            if jump_arg < 1/2:
+                new_data.append((2 * jump_arg, jump))
+        return SignatureFunction(new_data)
+
+
+    def minus_square_root(self):
+        # to read values for t^(1/2)
+        new_data = []
+        for jump_arg, jump in self.data.items():
+            if jump_arg >= 1/2:
+                new_data.append((mod_one(2 * jump_arg), jump))
+        return SignatureFunction(new_data)
+
+
     def __lshift__(self, shift):
         # A shift of the signature functions corresponds to the rotation.
         return self.__rshift__(-shift)
@@ -161,7 +179,7 @@ class SignatureFunction(object):
         return self + other.__neg__()
 
     def __str__(self):
-        return '\n'.join([str(jump_arg) + ": " + str(jump)
+        return '    '.join([str(jump_arg) + ": " + str(jump)
                           for jump_arg, jump in sorted(self.data.items())])
 
 
@@ -256,8 +274,12 @@ def get_blanchfield_for_pattern(k_n, theta):
     and theta/character. It returns object of class SignatureFunction.
     It is based on Proposition 9.8. in Twisted Blanchfield Pairing.
     """
+
+    # TBD: k_n explanation
+
     if theta == 0:
-        return get_untwisted_signature_function(k_n)
+        a = get_untwisted_signature_function(k_n)
+        return a.square_root() + a.minus_square_root()
     results = []
     k = abs(k_n)
     ksi = 1/(2 * k + 1)
@@ -296,14 +318,17 @@ def get_cable_signature_as_theta_function(*arg):
         Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t)
         + Bl(K')(ksi_l^theta * t)
         """
-        if theta > abs(arg[-1]):
+
+        # TBD: another formula (for t^2) description
+
+        k_n = abs(arg[-1])
+        if theta > k_n:
             print "k for the pattern in the cable is " + str(arg[-1])
             print "theta shouldn't be larger than this"
             return None
         cable_signature = get_blanchfield_for_pattern(arg[-1], theta)
-
         for i, k in enumerate(arg[:-1][::-1]):
-            ksi = 1/(2 * abs(k) + 1)
+            ksi = 1/(2 * k_n + 1)
             power = 2^i
             a = get_untwisted_signature_function(k)
             shift = theta * ksi * power
