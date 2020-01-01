@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 # TBD: read about Factory Method, variable in docstring, sage documentation
+# move settings to sep file
 
 """
 This script calculates signature functions for knots (cable sums).
@@ -76,9 +77,10 @@ class MySettings(object):
         #                      [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
         # self.knot_formula = "[[k[0], k[1], k[2]], [k[3]],\
         #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
-        self.default_limit = 3
+        self.limit = 3
 
-        self.verbose = True
+        # self.verbose = True
+        self.verbose = False
 
 
 class SignatureFunction(object):
@@ -187,10 +189,12 @@ def main(arg):
     # search_for_null_signature_value(limit=new_limit)
 
 
+# searching for signture > 5 + #(v_i != 0)
 def search_for_large_signature_value(knot_formula=None,
-                                     limit=None, verbose=None):
+                                     limit=None,
+                                     verbose=None):
     if limit is None:
-        limit = config.default_limit
+        limit = config.limit
     if knot_formula is None:
         knot_formula = config.knot_formula
     if verbose is None:
@@ -198,71 +202,59 @@ def search_for_large_signature_value(knot_formula=None,
 
     k_vector_size = extract_max(knot_formula) + 1
     limit = max(limit, k_vector_size)
-    print limit
     combinations = it.combinations(range(1, limit + 1), k_vector_size)
-    for k in combinations:
-            print
-            print k
-#  P = Primes()
-# sage: P.unrank(0)
-# 2
-# sage: P.unrank(5)
-# 13
-# sage: P.unrank(42)
-    return None
-    with open(config.f_results, 'w') as f_results:
-        for k in combinations:
-            if verbose:
-                print
-                print k
-            # TBD:  maybe the following condition or the function
-            # get_shifted_combination should be redefined to a dynamic version
-            if config.only_slice_candidates and k_vector_size == 5:
-                k = get_shifted_combination(k)
-            # print k
-            knot_sum = eval(knot_formula)
-            print "knot_sum"
-            print knot_sum
+    P = Primes()
 
-            if is_trivial_combination(knot_sum):
-                if verbose:
-                    print "\nTrivial combination" + str(knot_sum)
-                continue
+    with open(config.f_results, 'w') as f_results:
+        for c in combinations:
+            k = [(P.unrank(i) - 1)/2 for i in c]
+            knot_sum = eval(knot_formula)
             result = eval_cable_for_large_signature(knot_sum,
                                                     print_results=False)
-            if result is not None:
-                knot_description, null_comb, all_comb = result
-                line = (str(k) + ", " + str(null_comb) + ", " +
-                        str(all_comb) + "\n")
-                f_results.write(line)
+            # if result is not None:
+            #     knot_description, large_comb, all_comb = result
+            #     line = (str(k) + ", " + str(all_comb) + ", " +
+            #             str(all_comb) + "\n")
+            #     f_results.write(line)
 
-def eval_cable_for_large_signature(knot_sum, print_results=True, verbose=None):
+# searching for signture > 5 + #(v_i != 0)
+def eval_cable_for_large_signature(knot_sum,
+                                   print_results=True,
+                                   verbose=None):
     if verbose is None:
         verbose = config.verbose
-    if verbose:
-        print "\neval_cable_for_large_signature"
+
     if len(knot_sum) != 4:
         print "Wrong number of cable direct summands!"
         return None
     q = 2 * abs(knot_sum[-1][-1]) + 1
-    print "q is " + str(q)
 
     f = get_function_of_theta_for_sum(*knot_sum, verbose=False)
     knot_description = get_knot_descrption(*knot_sum)
-    all_combinations = get_number_of_combinations(*knot_sum)
 
-    null_combinations = 0
-    zero_theta_combinations = []
+    # large_value_combinations = 0
+    # good_thetas_list = []
 
     ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
-    if verbose:
-        print "eval_cable_for_large_signature - knot_description: "
-        print knot_description
+    # if verbose:
+    #     print "eval_cable_for_large_signature - knot_description: "
+    #     print knot_description
+
     for v_theta in it.product(*ranges_list):
+        if (v_theta[0]^2 - v_theta[1]^2 + v_theta[2]^2 - v_theta[3]^2) % q:
+            continue
         y = f(*v_theta).value(1/2)
-        print y
         if abs(y) > 5 + np.count_nonzero(v_theta):
-            print "hura hura"
+            print "\nLarge signature value"
+            print knot_description
+            print "v_theta: " + str(v_theta)
+            condition = (str(v_theta[0]^2) + " - " + str(v_theta[1]^2) + " + " +
+                        str(v_theta[2]^2) + " - " + str(v_theta[3]^2))
+            print condition
+            print "non zero value in v_theta: " + str(np.count_nonzero(v_theta))
+            print "signature at 1/2: " + str(y)
+
+
         # == 0:
         #     zero_theta_combinations.append(v_theta)
         #     m = len([theta for theta in v_theta if theta != 0])
@@ -270,23 +262,24 @@ def eval_cable_for_large_signature(knot_sum, print_results=True, verbose=None):
         # else:
         #     assert sum(v_theta) != 0
 
-    if print_results:
-        print
-        print knot_description
-        print "Zero cases: " + str(null_combinations)
-        print "All cases: " + str(all_combinations)
-        if zero_theta_combinations:
-            print "Zero theta combinations: "
-            for el in zero_theta_combinations:
-                print el
-    if null_combinations^2 >= all_combinations:
-        return knot_description, null_combinations, all_combinations
+        # if print_results:
+        #     print
+        #     print knot_description
+        #     print "Zero cases: " + str(null_combinations)
+        #     print "All cases: " + str(all_combinations)
+        #     if zero_theta_combinations:
+        #         print "Zero theta combinations: "
+        #         for el in zero_theta_combinations:
+        #             print el
+        # if null_combinations^2 >= all_combinations:
+        #     return knot_description, null_combinations, all_combinations
     return None
 
 
+# searching for signature == 0
 def search_for_null_signature_value(knot_formula=None, limit=None):
     if limit is None:
-        limit = config.default_limit
+        limit = config.limit
     if knot_formula is None:
         knot_formula = config.knot_formula
 
@@ -307,42 +300,34 @@ def search_for_null_signature_value(knot_formula=None, limit=None):
 
             if is_trivial_combination(knot_sum):
                 continue
-            result = search_for_thetas(knot_sum, print_results=False)
+            result = search_for_large_thetas(knot_sum, print_results=False)
             if result is not None:
                 knot_description, null_comb, all_comb = result
                 line = (str(k) + ", " + str(null_comb) + ", " +
                         str(all_comb) + "\n")
                 f_results.write(line)
 
-def search_for_thetas(knot_sum, print_results=False, verbose=None):
+# searching for signature == 0
+def eval_cable_for_null_signature(knot_sum, print_results=True, verbose=None):
+    # search for zero combinations
     if verbose is None:
         vebose = confi.verbose
-    if verbose:
-        print "search_for_thetas"
-    f = get_function_of_theta_for_sum(*knot_sum)
+    f = get_function_of_theta_for_sum(*knot_sum, verbose=False)
     knot_description = get_knot_descrption(*knot_sum)
     all_combinations = get_number_of_combinations(*knot_sum)
 
-    large_value_combinations = 0
-    good_theta_list = []
+    null_combinations = 0
+    zero_theta_combinations = []
 
     ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
     if verbose:
-        print "knot_description:"
+        print
         print knot_description
     for v_theta in it.product(*ranges_list):
-        if (v_theta[0]^2 - v_theta[1]^2 + v_theta[2]^2 - v_theta[3]^2) % q:
-            print "ojojoj"
-            print (v_theta[0]^2 - v_theta[1]^2 + v_theta[2]^2 - v_theta[3]^2) % q
-            continue
-        print f(*v_theta).value(-1)
-        if f(*v_theta).value(-1):
-            print "Hip hip hura"
-            good_theta_list.append(v_theta)
+        if f(*v_theta, verbose=False).sum_of_absolute_values() == 0:
+            zero_theta_combinations.append(v_theta)
             m = len([theta for theta in v_theta if theta != 0])
-            large_value_combinations += 2^m
-        else:
-            print "smuteczek"
+            null_combinations += 2^m
         # else:
         #     assert sum(v_theta) != 0
 
@@ -490,43 +475,6 @@ def get_function_of_theta_for_sum(*arg, **key_args):
         return sf
     signature_function_for_sum.__doc__ = signature_function_for_sum_docstring
     return signature_function_for_sum
-
-
-def eval_cable_for_null_signature(knot_sum, print_results=True, verbose=None):
-    # search for zero combinations
-    if verbose is None:
-        vebose = confi.verbose
-    f = get_function_of_theta_for_sum(*knot_sum, verbose=False)
-    knot_description = get_knot_descrption(*knot_sum)
-    all_combinations = get_number_of_combinations(*knot_sum)
-
-    null_combinations = 0
-    zero_theta_combinations = []
-
-    ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
-    if verbose:
-        print
-        print knot_description
-    for v_theta in it.product(*ranges_list):
-        if f(*v_theta, verbose=False).sum_of_absolute_values() == 0:
-            zero_theta_combinations.append(v_theta)
-            m = len([theta for theta in v_theta if theta != 0])
-            null_combinations += 2^m
-        # else:
-        #     assert sum(v_theta) != 0
-
-    if print_results:
-        print
-        print knot_description
-        print "Zero cases: " + str(null_combinations)
-        print "All cases: " + str(all_combinations)
-        if zero_theta_combinations:
-            print "Zero theta combinations: "
-            for el in zero_theta_combinations:
-                print el
-    if null_combinations^2 >= all_combinations:
-        return knot_description, null_combinations, all_combinations
-    return None
 
 
 def get_number_of_combinations(*arg):
@@ -756,7 +704,6 @@ main.__doc__ = \
     Optionaly a parameter (a limit for k_0 value) can be given.
     Thought to be run for time consuming calculations.
     """
-
 config = MySettings()
 if __name__ == '__main__' and '__file__' in globals():
     # not called in interactive mode as __file__ is not defined
