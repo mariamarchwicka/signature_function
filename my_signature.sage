@@ -4,7 +4,7 @@
 """
 This script calculates signature functions for knots (cable sums).
 
-The script can be run as a sage script from the terminal or used in inetactive
+The script can be run as a sage script from the terminal or used in interactive
 mode.
 
 
@@ -14,16 +14,11 @@ the function eval_cable_for_thetas as shown below:
 sage: eval_cable_for_thetas([[1, 3], [2], [-1, -2], [-3]])
 
 T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)
-Zero cases: 69
+Zero cases: 1
 All cases: 1225
 Zero theta combinations:
 (0, 0, 0, 0)
-(1, 1, 1, 1)
-(1, 2, 2, 1)
-(2, 1, 1, 2)
-(2, 2, 2, 2)
-(3, 0, 0, 3)
-('T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)', 69, 1225)
+
 sage:
 
 
@@ -38,17 +33,22 @@ sage: signature_function_generator = get_function_of_theta_for_sum([1, 3], [2], 
 sage: sf = signature_function_generator(2, 1, 2, 2)
 sage: print sf
 0: 0
+5/42: 1
 1/7: 0
-1/6: 0
 1/5: -1
+7/30: -1
 2/5: 1
 3/7: 0
-1/2: 0
+13/30: -1
+19/42: -1
+23/42: 1
+17/30: 1
 4/7: 0
 3/5: -1
+23/30: 1
 4/5: 1
-5/6: 0
 6/7: 0
+37/42: -1
 sage:
 
 or like below:
@@ -179,8 +179,11 @@ class SignatureFunction(object):
         return self + other.__neg__()
 
     def __str__(self):
-        return '    '.join([str(jump_arg) + ": " + str(jump)
+        return ''.join([str(jump_arg) + ": " + str(jump) + "\n"
                           for jump_arg, jump in sorted(self.data.items())])
+
+def get_untwisted_signature():
+    return 0
 
 
 def main(arg):
@@ -229,12 +232,12 @@ def perform_calculations(knot_sum_formula=None, limit=None):
     with open(settings.f_results, 'w') as f_results:
         for k in combinations:
             # print
-            print k
+            # print k
             # TBD:  maybe the following condition or the function
             # get_shifted_combination should be redefined to a dynamic version
             if settings.only_slice_candidates and k_vector_size == 5:
                 k = get_shifted_combination(k)
-            print k
+            # print k
             knot_sum = eval(knot_sum_formula)
 
             if is_trivial_combination(knot_sum):
@@ -365,13 +368,17 @@ def get_function_of_theta_for_sum(*arg):
     an object SignatureFunction.
     """
 
-    def signature_function_for_sum(*thetas):
+    def signature_function_for_sum(*thetas, **kwargs):
         """
         Returns object of SignatureFunction class for a previously defined
-        connercted sum of len(arg) cables.
+        connected sum of len(arg) cables.
         Accept len(arg) arguments: for each cable one theta parameter.
         If call with no arguments, all theta parameters are set to be 0.
         """
+        if 'verbose' in kwargs:
+            verbose = kwargs['verbose']
+        else:
+            verbose = False
 
         la = len(arg)
         lt = len(thetas)
@@ -384,11 +391,15 @@ def get_function_of_theta_for_sum(*arg):
         sf = SignatureFunction([(0, 0)])
         for i, knot in enumerate(arg):
             sf += (get_cable_signature_as_theta_function(*knot))(thetas[i])
+        if verbose:
+            print
+            print str(*thetas)
+            print sf
         return sf
     return signature_function_for_sum
 
 
-def eval_cable_for_thetas(knot_sum, print_results=True):
+def eval_cable_for_thetas(knot_sum, print_results=True, verbose=False):
     """
     This function calculates all possible twisted signature functions for
     a knot that is given as an argument. The knot should be encoded as a list
@@ -407,9 +418,11 @@ def eval_cable_for_thetas(knot_sum, print_results=True):
     zero_theta_combinations = []
 
     ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
+    if verbose:
+        print
+        print knot_description
     for v_theta in it.product(*ranges_list):
-
-        if f(*v_theta).sum_of_absolute_values() == 0:
+        if f(*v_theta, verbose=verbose).sum_of_absolute_values() == 0:
             zero_theta_combinations.append(v_theta)
             m = len([theta for theta in v_theta if theta != 0])
             null_combinations += 2^m
@@ -440,6 +453,23 @@ def get_knot_descrption(*arg):
             description += "2, " + str(2 * abs(k) + 1) + "; "
         description = description[:-2] + ") # "
     return description[:-3]
+
+
+def check_squares(a, k):
+    print
+    p = 2 * k + 1
+    k_0 = (p^2 - 1)/2
+    knot_sum = [[a, k], [k_0], [-a, -k_0], [-k]]
+    print get_knot_descrption(*knot_sum)
+    if a * 4 >= p or is_trivial_combination(knot_sum):
+        if a * 4 >= p:
+            print str(knot_sum)
+            print "a * 4 >= p"
+        else:
+            print "Trivial " + str(knot_sum)
+        return None
+
+    eval_cable_for_thetas(knot_sum)
 
 
 def get_number_of_combinations(*arg):
