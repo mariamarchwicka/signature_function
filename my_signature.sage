@@ -1,15 +1,16 @@
-#!/usr/bin/env python
-
+#!/usr/bin/python
 # TBD: remove part of the description to readme/example
 """
 This script calculates signature functions for knots (cable sums).
 
 The script can be run as a sage script from the terminal or used in interactive
-mode.
+modeselfself.
 
+A knot (cable sum) is encoded as a list where each element (also a list)
+corresponds to a cable knot.
 
 To calculate the number of characters for which signature function vanish use
-the function eval_cable_for_thetas as shown below:
+the function eval_cable_for_thetas as shown below.
 
 sage: eval_cable_for_thetas([[1, 3], [2], [-1, -2], [-3]])
 
@@ -42,7 +43,7 @@ sage: print sf
 13/30: -1
 19/42: -1
 23/42: 1
-17/30: 1
+            17/30: 1
 4/7: 0
 3/5: -1
 23/30: 1
@@ -53,7 +54,7 @@ sage:
 
 or like below:
 
-sage: print  get_function_of_theta_for_sum([1, 3], [2], [-1, -2], [-3])(2, 1, 2, 2)
+sage: print get_function_of_theta_for_sum([1, 3], [2], [-1, -2], [-3])(2, 1, 2, 2)
 0: 0
 1/7: 0
 1/6: 0
@@ -77,6 +78,7 @@ import inspect
 import itertools as it
 import pandas as pd
 import re
+
 
 
 class MySettings(object):
@@ -136,6 +138,9 @@ class SignatureFunction(object):
             if jump_arg < 1/2:
                 new_data.append((2 * jump_arg, jump))
         return SignatureFunction(new_data)
+
+    def get_signture_jump(self, t):
+        return self.data.get(t, 0)
 
 
     def minus_square_root(self):
@@ -326,9 +331,9 @@ def get_cable_signature_as_theta_function(*arg):
 
         k_n = abs(arg[-1])
         if theta > k_n:
-            print "k for the pattern in the cable is " + str(arg[-1])
-            print "theta shouldn't be larger than this"
-            return None
+            msg = "k for the pattern in the cable is " + str(arg[-1]) + \
+                  ". Parameter theta should not be larger than abs(k)."
+            raise ValueError(msg)
         cable_signature = get_blanchfield_for_pattern(arg[-1], theta)
         for i, k in enumerate(arg[:-1][::-1]):
             ksi = 1/(2 * k_n + 1)
@@ -390,7 +395,12 @@ def get_function_of_theta_for_sum(*arg):
             raise TypeError(msg)
         sf = SignatureFunction([(0, 0)])
         for i, knot in enumerate(arg):
-            sf += (get_cable_signature_as_theta_function(*knot))(thetas[i])
+            try:
+                sf += (get_cable_signature_as_theta_function(*knot))(thetas[i])
+            except ValueError as e:
+                print "ValueError: " + str(e.args[0]) +\
+                      " Please change " + str(i + 1) + ". parameter."
+                return None
         if verbose:
             print
             print str(*thetas)
