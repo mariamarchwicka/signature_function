@@ -1,13 +1,48 @@
 #!/usr/bin/python
-# TBD: remove part of the description to readme/example
+
+def calculate_form(x, y, q4):
+    x1, x2, x3, x4 = x
+    y1, y2, y3, y4 = y
+    form = (x1 * y1 - x2 * y2 + x3 * y3 - x4 * y4) % q_4
+    # TBD change for ring modulo q_4
+    return form
+
+def check_condition(v, q4):
+    form = calculate_form(v, v, q4)
+    if form:
+        return False
+    return True
+
+def find_v(q4):
+    results = []
+    for i in range(q4):
+        for j in range(q4):
+            for k in range(q4):
+                for m in range(q4):
+                    if check_condition([i, j, k, m], q_4):
+                        results.add(v)
+    return results
+
+def check_inequality(q, v):
+    a1, a2, a3, a4 = v
+    q1, q2, q3, q4 = q
+    pattern = [q1, q2, q4],[-q2, -q4],[q3, q4],[-q1, -q3, -q4]
+    signature_function_generator = get_function_of_theta_for_sum(pattern)
+    signature_function_for_sum = signature_function_generator(a1, a2, a3, a4)
+
+    # sigma_v = sigma(q4, a1) - s(a2) + s(a3) - s(a4)
+
+
 """
 This script calculates signature functions for knots (cable sums).
 
-The script can be run as a sage script from the terminal or used in interactive
-modeselfself.
+The script can be run as a sage script from the terminal
+or used in interactive mode.
 
 A knot (cable sum) is encoded as a list where each element (also a list)
-corresponds to a cable knot.
+corresponds to a cable knot, e.g. a list
+[[1, 3], [2], [-1, -2], [-3]] encodes
+T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7).
 
 To calculate the number of characters for which signature function vanish use
 the function eval_cable_for_thetas as shown below.
@@ -26,48 +61,8 @@ sage:
 The numbers given to the function eval_cable_for_thetas are k-values for each
 component/cable in a direct sum.
 
-
 To calculate signature function for a knot and a theta value, use function
-get_function_of_theta_for_sum as follow:
-
-sage: signature_function_generator = get_function_of_theta_for_sum([1, 3], [2], [-1, -2], [-3])
-sage: sf = signature_function_generator(2, 1, 2, 2)
-sage: print sf
-0: 0
-5/42: 1
-1/7: 0
-1/5: -1
-7/30: -1
-2/5: 1
-3/7: 0
-13/30: -1
-19/42: -1
-23/42: 1
-            17/30: 1
-4/7: 0
-3/5: -1
-23/30: 1
-4/5: 1
-6/7: 0
-37/42: -1
-sage:
-
-or like below:
-
-sage: print get_function_of_theta_for_sum([1, 3], [2], [-1, -2], [-3])(2, 1, 2, 2)
-0: 0
-1/7: 0
-1/6: 0
-1/5: -1
-2/5: 1
-3/7: 0
-1/2: 0
-4/7: 0
-3/5: -1
-4/5: 1
-5/6: 0
-6/7: 0
-sage:
+get_function_of_theta_for_sum (see help/docstring for details).
 """
 
 import os
@@ -78,7 +73,6 @@ import inspect
 import itertools as it
 import pandas as pd
 import re
-
 
 
 class MySettings(object):
@@ -94,6 +88,19 @@ class MySettings(object):
         # will be calculated
         self.knot_sum_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
                                  [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
+        """
+        About notation:
+        Cables that we work with follow a schema:
+        T(2, q_0; 2, q_1; 2, q_2) # T(2, q_1; 2, q_2) #
+                # -T(2, q_3; 2, q_2) # -T(2, q_0; 2, q_3; 2, q_2)
+        In knot_sum_formula each k[i] is related with some q_i value, where
+        q_i = 2*k[i] + 1.
+        So we can work in the following steps:
+        1) choose a schema/formula by changing the value of knot_sum_formula
+        2) set each q_i all or choose range in which q_i should varry
+        3) choose vector v / theata vector.
+
+        """
         # self.knot_sum_formula = "[[k[0], k[1], k[2]], [k[3]],\
         #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
         self.default_limit = 3
@@ -119,7 +126,6 @@ class SignatureFunction(object):
                 "Signature function is defined on the interval [0, 1)."
             self.data[jump_arg] = jump
 
-
     def sum_of_absolute_values(self):
         return sum([abs(i) for i in self.data.values()])
 
@@ -142,7 +148,6 @@ class SignatureFunction(object):
     def get_signture_jump(self, t):
         return self.data.get(t, 0)
 
-
     def minus_square_root(self):
         # to read values for t^(1/2)
         new_data = []
@@ -150,7 +155,6 @@ class SignatureFunction(object):
             if jump_arg >= 1/2:
                 new_data.append((mod_one(2 * jump_arg), jump))
         return SignatureFunction(new_data)
-
 
     def __lshift__(self, shift):
         # A shift of the signature functions corresponds to the rotation.
@@ -187,19 +191,16 @@ class SignatureFunction(object):
         return ''.join([str(jump_arg) + ": " + str(jump) + "\n"
                           for jump_arg, jump in sorted(self.data.items())])
 
-def get_untwisted_signature():
-    return 0
-
 
 def main(arg):
     """
     This function is run if the script was called from the terminal.
-    It calls another function to calculate signature functions for a schema
+    It calls another function, perform_calculations,
+    to calculate signature functions for a schema
     of a cable sum defined in the class MySettings.
     Optionaly a parameter (a limit for k_0 value) can be given.
     Thought to be run for time consuming calculations.
     """
-
     try:
         new_limit = int(arg[1])
     except:
@@ -212,10 +213,11 @@ def perform_calculations(knot_sum_formula=None, limit=None):
     This function calculates signature functions for knots constracted
     accordinga a schema for a cable sum. The schema is given as an argument
     or defined in the class MySettings.
-    Results of calculations will be writen to a file and to the stdout.
-    limit is the upper bound for the first value in k_vector, i.e first k value
-    in a cable sum (the number of knots that will be constracted depends
-    on limit value).
+    Results of calculations will be writen to a file and the stdout.
+    limit is the upper bound for the first value in k_vector,
+    i.e k[0] value in a cable sum, where q_0 = 2 * k[0] + 1.
+
+    (the number of knots that will be constracted depends on limit value).
     For each knot/cable sum the function eval_cable_for_thetas is called.
     eval_cable_for_thetas calculetes the number of all possible thetas
     (characters) and the number of combinations for which signature function
@@ -313,14 +315,18 @@ def get_blanchfield_for_pattern(k_n, theta):
 
 def get_cable_signature_as_theta_function(*arg):
     """
-    This function takes as an argument a single cable and returns another
-    function that alow to calculate signature function for previously defined
-    cable and a theta given as an argument.
+    This function takes as an argument a single cable T_(2, q), i.e.
+    arbitrary number of integers that encode the cable,
+    and returns another function that alow to calculate signature function
+    for this single cable and a theta given as an argument.
     """
     def get_signture_function(theta):
         """
-        This function returns SignatureFunction for previously defined cable
-        and a theta given as an argument.
+        This function returns SignatureFunction for previously defined single
+        cable T_(2, q) and a theta given as an argument.
+        The cable was defined by calling function
+        get_cable_signature_as_theta_function(*arg)
+        with the cable description as an argument.
         It is an implementaion of the formula:
         Bl_theta(K'_(2, d)) =
         Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t)
@@ -362,7 +368,7 @@ def get_untwisted_signature_function(j):
 
 def get_function_of_theta_for_sum(*arg):
     """
-    Function intended to calculate signature function for a connected
+    Function intended to construct signature function for a connected
     sum of multiple cables with varying theta parameter values.
     Accept arbitrary number of arguments (depending on number of cables in
     connected sum).
@@ -371,6 +377,47 @@ def get_function_of_theta_for_sum(*arg):
     T(2, 2k_i + 1) and - the last one - k_n for a pattern knot T(2, 2k_n + 1).
     Returns a function that will take theta vector as an argument and return
     an object SignatureFunction.
+
+    To calculate signature function for a cable sum and a theta values vector,
+    use as below.
+
+    sage: signature_function_generator = get_function_of_theta_for_sum(
+                                             [1, 3], [2], [-1, -2], [-3])
+    sage: sf = signature_function_generator(2, 1, 2, 2)
+    sage: print sf
+    0: 0
+    5/42: 1
+    1/7: 0
+    1/5: -1
+    7/30: -1
+    2/5: 1
+    3/7: 0
+    13/30: -1
+    19/42: -1
+    23/42: 1
+    17/30: 1
+    4/7: 0
+    3/5: -1
+    23/30: 1
+    4/5: 1
+    6/7: 0
+    37/42: -1
+
+    Or like below.
+    sage: print get_function_of_theta_for_sum([1, 3], [2], [-1, -2], [-3]
+                                                )(2, 1, 2, 2)
+    0: 0
+    1/7: 0
+    1/6: 0
+    1/5: -1
+    2/5: 1
+    3/7: 0
+    1/2: 0
+    4/7: 0
+    3/5: -1
+    4/5: 1
+    5/6: 0
+    6/7: 0
     """
 
     def signature_function_for_sum(*thetas, **kwargs):
@@ -387,16 +434,23 @@ def get_function_of_theta_for_sum(*arg):
 
         la = len(arg)
         lt = len(thetas)
+
+        # call with no arguments
         if lt == 0:
             return signature_function_for_sum(*(la * [0]))
+
         if lt != la:
             msg = "This function takes exactly " + str(la) + \
                   " arguments or no argument at all (" + str(lt) + " given)."
             raise TypeError(msg)
+
         sf = SignatureFunction([(0, 0)])
+
+        # for each cable in cable sum apply theta
         for i, knot in enumerate(arg):
             try:
                 sf += (get_cable_signature_as_theta_function(*knot))(thetas[i])
+            # in case wrong theata value was given
             except ValueError as e:
                 print "ValueError: " + str(e.args[0]) +\
                       " Please change " + str(i + 1) + ". parameter."
@@ -419,6 +473,20 @@ def eval_cable_for_thetas(knot_sum, print_results=True, verbose=False):
     be written before each number for this component. For example:
     eval_cable_for_thetas([[1, 8], [2], [-2, -8], [-2]])
     eval_cable_for_thetas([[1, 2], [-1, -2]])
+
+    sage: eval_cable_for_thetas([[1, 3], [2], [-1, -2], [-3]])
+
+    T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)
+    Zero cases: 1
+    All cases: 1225
+    Zero theta combinations:
+    (0, 0, 0, 0)
+
+    sage:
+    The numbers given to the function eval_cable_for_thetas are k-values for each
+    component/cable in a direct sum.
+
+
     """
     f = get_function_of_theta_for_sum(*knot_sum)
     knot_description = get_knot_descrption(*knot_sum)
@@ -453,18 +521,6 @@ def eval_cable_for_thetas(knot_sum, print_results=True, verbose=False):
     return None
 
 
-def get_knot_descrption(*arg):
-    description = ""
-    for knot in arg:
-        if knot[0] < 0:
-            description += "-"
-        description += "T("
-        for k in knot:
-            description += "2, " + str(2 * abs(k) + 1) + "; "
-        description = description[:-2] + ") # "
-    return description[:-3]
-
-
 def check_squares(a, k):
     print
     p = 2 * k + 1
@@ -483,6 +539,16 @@ def check_squares(a, k):
 
 
 def get_number_of_combinations(*arg):
+    """
+    Arguments:
+        arbitrary number of lists of numbers, each list encodes a single cable.
+    Return:
+        number of possible theta values combinations that could be applied
+        for a given cable sum,
+        i.e. the product of q_j for j = {1,.. n},
+        where n is a number of direct components in the cable sum,
+        and q_j is the last q parameter for the component (a single cable).
+    """
     number_of_combinations = 1
     for knot in arg:
         number_of_combinations *= (2 * abs(knot[-1]) + 1)
@@ -490,16 +556,56 @@ def get_number_of_combinations(*arg):
 
 
 def extract_max(string):
-     """This function returns maximal number from given string."""
-     numbers = re.findall('\d+', string)
-     numbers = map(int, numbers)
-     return max(numbers)
+    """
+    Return:
+        maximum of absolute values of numbers from given string
+    Examples:
+        sage: extract_max("([1, 3], [2], [-1, -2], [-10])")
+        10
+        sage: extract_max("3, 55, ewewe, -42, 3300, 50")
+        3300
+    """
+    numbers = re.findall('\d+', string)
+    numbers = map(int, numbers)
+    return max(numbers)
 
 
 def mod_one(n):
-    """This function returns the fractional part of some number."""
+    """
+    Argument:
+        a number
+    Return:
+        the fractional part of a number
+    Examples:
+        sage: mod_one(9 + 3/4)
+        3/4
+        sage: mod_one(-9 + 3/4)
+        3/4
+        sage: mod_one(-3/4)
+        1/4
+    """
     return n - floor(n)
 
 
+def get_knot_descrption(*arg):
+    """
+    Arguments:
+        arbitrary number of lists of numbers, each list encodes a single cable.
+    Examples:
+        sage: get_knot_descrption([1, 3], [2], [-1, -2], [-3])
+        'T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)'
+    """
+    description = ""
+    for knot in arg:
+        if knot[0] < 0:
+            description += "-"
+        description += "T("
+        for k in knot:
+            description += "2, " + str(2 * abs(k) + 1) + "; "
+        description = description[:-2] + ") # "
+    return description[:-3]
+
+
 if __name__ == '__main__' and '__file__' in globals():
+    # not called in interactive mode as __file__ is not defined
     main(sys.argv)
