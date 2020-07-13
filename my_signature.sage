@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+# TBD: read about Factory Method, variable in docstring, sage documentation
 def calculate_form(x, y, q4):
     x1, x2, x3, x4 = x
     y1, y2, y3, y4 = y
@@ -8,8 +9,7 @@ def calculate_form(x, y, q4):
     return form
 
 def check_condition(v, q4):
-    form = calculate_form(v, v, q4)
-    if form:
+    if calculate_form(v, v, q4):
         return False
     return True
 
@@ -91,8 +91,8 @@ class MySettings(object):
         """
         About notation:
         Cables that we work with follow a schema:
-        T(2, q_0; 2, q_1; 2, q_2) # T(2, q_1; 2, q_2) #
-                # -T(2, q_3; 2, q_2) # -T(2, q_0; 2, q_3; 2, q_2)
+            T(2, q_0; 2, q_1; 2, q_2) # T(2, q_1; 2, q_2) #
+                    # -T(2, q_3; 2, q_2) # -T(2, q_0; 2, q_3; 2, q_2)
         In knot_sum_formula each k[i] is related with some q_i value, where
         q_i = 2*k[i] + 1.
         So we can work in the following steps:
@@ -280,24 +280,32 @@ def get_shifted_combination(combination):
 
 def get_blanchfield_for_pattern(k_n, theta):
     """
-    This function calculates a twisted signature function for a given cable
-    and theta/character. It returns object of class SignatureFunction.
-    It is based on Proposition 9.8. in Twisted Blanchfield Pairing.
+    Arguments:
+        k_n:    a number s.t. q_n = 2 * k_n + 1, where
+                T(2, q_n) is a pattern knot for a single cable from a cable sum
+        theta:  twist/character for the cable (value form v vector)
+    Return:
+        SignatureFunction created for twisted signature function
+        for a given cable and theta/character
+    Based on:
+        Proposition 9.8. in Twisted Blanchfield Pairing
+        (https://arxiv.org/pdf/1809.08791.pdf)
     """
-
-    # TBD: k_n explanation
 
     if theta == 0:
         a = get_untwisted_signature_function(k_n)
         return a.square_root() + a.minus_square_root()
+
     results = []
     k = abs(k_n)
     ksi = 1/(2 * k + 1)
-    # lambda_odd (theta + e) % 2 == 0:
+
+    # lambda_odd, i.e. (theta + e) % 2 != 0
     for e in range(1, k + 1):
         if (theta + e) % 2 != 0:
             results.append((e * ksi, 1 * sgn(k_n)))
             results.append((1 - e * ksi, -1 * sgn(k_n)))
+
     # lambda_even
     # print "normal"
     for e in range(1, theta):
@@ -315,11 +323,14 @@ def get_blanchfield_for_pattern(k_n, theta):
 
 def get_cable_signature_as_theta_function(*arg):
     """
-    This function takes as an argument a single cable T_(2, q), i.e.
-    arbitrary number of integers that encode the cable,
-    and returns another function that alow to calculate signature function
-    for this single cable and a theta given as an argument.
+    Argument:
+        n integers that encode a single cable, i.e.
+        values of q_i for T(2,q_0; 2,q_1; ... 2, q_n)
+    Return:
+        a function that returns SignatureFunction for this single cable
+        and a theta given as an argument
     """
+
     def get_signture_function(theta):
         """
         This function returns SignatureFunction for previously defined single
@@ -328,9 +339,9 @@ def get_cable_signature_as_theta_function(*arg):
         get_cable_signature_as_theta_function(*arg)
         with the cable description as an argument.
         It is an implementaion of the formula:
-        Bl_theta(K'_(2, d)) =
-        Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t)
-        + Bl(K')(ksi_l^theta * t)
+            Bl_theta(K'_(2, d)) =
+                Bl_theta(T_2, d) + Bl(K')(ksi_l^(-theta) * t)
+                + Bl(K')(ksi_l^theta * t)
         """
 
         # TBD: another formula (for t^2) description
@@ -340,7 +351,11 @@ def get_cable_signature_as_theta_function(*arg):
             msg = "k for the pattern in the cable is " + str(arg[-1]) + \
                   ". Parameter theta should not be larger than abs(k)."
             raise ValueError(msg)
+
+        # twisted part
         cable_signature = get_blanchfield_for_pattern(arg[-1], theta)
+
+        # untwisted part
         for i, k in enumerate(arg[:-1][::-1]):
             ksi = 1/(2 * k_n + 1)
             power = 2^i
@@ -422,9 +437,11 @@ def get_function_of_theta_for_sum(*arg):
 
     def signature_function_for_sum(*thetas, **kwargs):
         """
+        Arguments:
+
         Returns object of SignatureFunction class for a previously defined
         connected sum of len(arg) cables.
-        Accept len(arg) arguments: for each cable one theta parameter.
+        Acept len(arg) arguments: for each cable one theta parameter.
         If call with no arguments, all theta parameters are set to be 0.
         """
         if 'verbose' in kwargs:
@@ -534,20 +551,19 @@ def check_squares(a, k):
         else:
             print "Trivial " + str(knot_sum)
         return None
-
     eval_cable_for_thetas(knot_sum)
 
 
 def get_number_of_combinations(*arg):
     """
     Arguments:
-        arbitrary number of lists of numbers, each list encodes a single cable.
+        arbitrary number of lists of numbers, each list encodes a single cable
     Return:
         number of possible theta values combinations that could be applied
         for a given cable sum,
         i.e. the product of q_j for j = {1,.. n},
         where n is a number of direct components in the cable sum,
-        and q_j is the last q parameter for the component (a single cable).
+        and q_j is the last q parameter for the component (a single cable)
     """
     number_of_combinations = 1
     for knot in arg:
@@ -575,7 +591,7 @@ def mod_one(n):
     Argument:
         a number
     Return:
-        the fractional part of a number
+        the fractional part of the argument
     Examples:
         sage: mod_one(9 + 3/4)
         3/4
