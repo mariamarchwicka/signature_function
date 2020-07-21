@@ -529,22 +529,6 @@ def eval_cable_for_null_signature(knot_sum, print_results=True, verbose=None):
     return None
 
 
-def check_squares(a, k):
-    print
-    p = 2 * k + 1
-    k_0 = (p^2 - 1)/2
-    knot_sum = [[a, k], [k_0], [-a, -k_0], [-k]]
-    print get_knot_descrption(*knot_sum)
-    if a * 4 >= p or is_trivial_combination(knot_sum):
-        if a * 4 >= p:
-            print str(knot_sum)
-            print "a * 4 >= p"
-        else:
-            print "Trivial " + str(knot_sum)
-        return None
-    eval_cable_for_null_signature(knot_sum)
-
-
 def get_number_of_combinations(*arg):
     number_of_combinations = 1
     for knot in arg:
