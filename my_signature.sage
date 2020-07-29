@@ -43,8 +43,6 @@ So we can work in the following steps:
 1) choose a schema/formula by changing the value of knot_formula
 2) set each q_i all or choose range in which q_i should varry
 3) choose vector v / theata vector.
-
-
 """
 
 import os
@@ -58,13 +56,13 @@ import numpy as np
 import re
 
 
-class MySettings(object):
+class Config(object):
     def __init__(self):
         self.f_results = os.path.join(os.getcwd(), "results.out")
 
         # is the ratio restriction for values in k_vector taken into account
         # False flag is usefull to make quick script tests
-        # self.only_slice_candidates = True
+        self.only_slice_candidates = True
         self.only_slice_candidates = False
 
         # knot_formula is a schema for knots which signature function
@@ -88,28 +86,30 @@ class SignatureFunction(object):
     This simple class encodes twisted and untwisted signature functions
     of knots. Since the signature function is entirely encoded by its signature
     jump, the class stores only information about signature jumps
-    in a dictionary self.data.
+    in a dictionary self.signature_jumps.
     The dictionary stores data of the signature jump as a key/values pair,
     where the key is the argument at which the functions jumps
     and value encodes the value of the jump. Remember that we treat
     signature functions as defined on the interval [0,1).
     """
     def __init__(self, values=[]):
-        # We will store data of signature jumps here.
-        self.data = collections.defaultdict(int)
-        # values contain initial data of singature jumps
+        # set values of signature jumps
+        self.signature_jumps = collections.defaultdict(int)
         for jump_arg, jump in values:
             assert 0 <= jump_arg < 1, \
                 "Signature function is defined on the interval [0, 1)."
-            self.data[jump_arg] = jump
+            self.signature_jumps[jump_arg] = jump
 
     def sum_of_absolute_values(self):
-        return sum([abs(i) for i in self.data.values()])
+        return sum([abs(i) for i in self.signature_jumps.values()])
+
+    def is_zero_everywhere(self):
+        return not any(self.signature_jumps.values())
 
     def double_cover(self):
         # to read values for t^2
         new_data = []
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in self.signature_jumps.items():
             new_data.append((mod_one(jump_arg/2), jump))
             new_data.append((mod_one(1/2 + jump_arg/2), jump))
         return SignatureFunction(new_data)
@@ -117,18 +117,18 @@ class SignatureFunction(object):
     def square_root(self):
         # to read values for t^(1/2)
         new_data = []
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in self.signature_jumps.items():
             if jump_arg < 1/2:
                 new_data.append((2 * jump_arg, jump))
         return SignatureFunction(new_data)
 
     def get_signture_jump(self, t):
-        return self.data.get(t, 0)
+        return self.signature_jumps.get(t, 0)
 
     def minus_square_root(self):
         # to read values for t^(1/2)
         new_data = []
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in self.signature_jumps.items():
             if jump_arg >= 1/2:
                 new_data.append((mod_one(2 * jump_arg), jump))
         return SignatureFunction(new_data)
@@ -139,26 +139,27 @@ class SignatureFunction(object):
 
     def __rshift__(self, shift):
         new_data = []
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in self.signature_jumps.items():
             new_data.append((mod_one(jump_arg + shift), jump))
         return SignatureFunction(new_data)
 
     def __neg__(self):
         # we can perform arithmetic operations on signature functions.
         new_data = []
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in self.signature_jumps.items():
             new_data.append(jump_arg, -jump)
         return SignatureFunction(new_data)
 
+    # TBD short
     def __add__(self, other):
         new_signature_function = SignatureFunction()
         new_data = collections.defaultdict(int)
-        for jump_arg, jump in other.data.items():
-            new_data[jump_arg] = jump + self.data.get(jump_arg, 0)
-        for jump_arg, jump in self.data.items():
+        for jump_arg, jump in other.signature_jumps.items():
+            new_data[jump_arg] = jump + self.signature_jumps.get(jump_arg, 0)
+        for jump_arg, jump in self.signature_jumps.items():
             if jump_arg not in new_data.keys():
-                new_data[jump_arg] = self.data[jump_arg]
-        new_signature_function.data = new_data
+                new_data[jump_arg] = self.signature_jumps[jump_arg]
+        new_signature_function.signature_jumps = new_data
         return new_signature_function
 
     def __sub__(self, other):
@@ -166,18 +167,22 @@ class SignatureFunction(object):
 
     def __str__(self):
         return ''.join([str(jump_arg) + ": " + str(jump) + "\n"
-                          for jump_arg, jump in sorted(self.data.items())])
-    def value(self, arg):
-      # Compute the value of the signature function at the point arg.
-      # This requires summing all signature jumps that occur before arg.
-      assert 0 <= arg and arg < 1
-      val = 0
-      for jump_arg, jump in self.data.items():
+                for jump_arg, jump in sorted(self.signature_jumps.items())])
+
+    def __call__(self, arg):
+        # Compute the value of the signature function at the point arg.
+        # This requires summing all signature jumps that occur before arg.
+        assert 0 <= arg and arg < 1
+        val = 0
+        for jump_arg, jump in self.signature_jumps.items():
           if jump_arg < arg:
               val += 2 * jump
           elif jump_arg == arg:
               val += jump
-      return val
+        a = self.sum_of_absolute_values()
+        b = self.is_zero_everywhere()
+        assert (a and not b) or (not a and b)
+        return val
 
 
 def main(arg):
@@ -209,6 +214,12 @@ def search_for_large_signature_value(knot_formula=None,
         for c in combinations:
             k = [(P.unrank(i) - 1)/2 for i in c]
             knot_sum = eval(knot_formula)
+            if config.only_slice_candidates:
+                if not (k[3] > 4 * k[2] and
+                        k[2] > 4 * k[1] and
+                        k[1] > 4 * k[0]):
+                    print "niu niu"
+                    continue
             result = eval_cable_for_large_signature(knot_sum,
                                                     print_results=False)
             # if result is not None:
@@ -230,6 +241,8 @@ def eval_cable_for_large_signature(knot_sum,
     q = 2 * abs(knot_sum[-1][-1]) + 1
 
     f = get_function_of_theta_for_sum(*knot_sum, verbose=False)
+    g = get_function_of_theta_for_sum_test(*knot_sum, verbose=False)
+
     knot_description = get_knot_descrption(*knot_sum)
 
     # large_value_combinations = 0
@@ -239,20 +252,28 @@ def eval_cable_for_large_signature(knot_sum,
     # if verbose:
     #     print "eval_cable_for_large_signature - knot_description: "
     #     print knot_description
+    print "\n\n"
+    print knot_description
 
     for v_theta in it.product(*ranges_list):
         if (v_theta[0]^2 - v_theta[1]^2 + v_theta[2]^2 - v_theta[3]^2) % q:
             continue
-        y = f(*v_theta).value(1/2)
+        y = f(*v_theta)(1/2)
+        j = g(*v_theta)(1/2)
+        assert y == j
+
         if abs(y) > 5 + np.count_nonzero(v_theta):
             print "\nLarge signature value"
-            print knot_description
-            print "v_theta: " + str(v_theta)
-            condition = (str(v_theta[0]^2) + " - " + str(v_theta[1]^2) + " + " +
-                        str(v_theta[2]^2) + " - " + str(v_theta[3]^2))
-            print condition
-            print "non zero value in v_theta: " + str(np.count_nonzero(v_theta))
-            print "signature at 1/2: " + str(y)
+        else:
+            print "\nSmall signature value"
+        print knot_description
+        print "v_theta: " + str(v_theta)
+        condition = (str(v_theta[0]^2) + " - " + str(v_theta[1]^2) + " + " +
+                    str(v_theta[2]^2) + " - " + str(v_theta[3]^2))
+        print condition
+        print "non zero value in v_theta: " + str(np.count_nonzero(v_theta))
+        print "signature at 1/2: " + str(y)
+
 
 
         # == 0:
@@ -395,6 +416,61 @@ def get_blanchfield_for_pattern(k_n, theta):
         results.append((1 - e * ksi, 1 * sgn(k_n)))
     return SignatureFunction(results)
 
+def get_cable_signature_as_theta_function_test(*arg):
+
+    sf = SignatureFunction([(0, 0)])
+
+    def get_signture_function_test(theta):
+        # untwisted part
+        k_n = abs(arg[-1])
+        cable_signature = sf
+        # print k_0, k_1, k_2, k_3
+
+        for i, k in enumerate(arg[:-1][::-1]):
+            ksi = 1/(2 * k_n + 1)
+            power = 2^i
+            a = get_untwisted_signature_function(k)
+            shift = theta * ksi * power
+            b = a >> shift
+            c = a << shift
+            for _ in range(i):
+                b = b.double_cover()
+                c = c.double_cover()
+            cable_signature += b + c
+
+        if theta > k_n:
+            msg = "k for the pattern in the cable is " + str(arg[-1]) + \
+                  ". Parameter theta should not be larger than abs(k)."
+            raise ValueError(msg)
+
+        # twisted part
+        tp = get_blanchfield_for_pattern(arg[-1], theta)
+        cable_signature += tp
+        print "\ncs: "
+        print cable_signature(1/2)
+        tp_at = tp(1/2)
+        print "tp: "
+        print tp_at
+        if theta:
+            q_4 = 2 * k_n + 1
+            alternativ = - q_4 + 2 * theta  - (2 * theta^2)/q_4
+            if arg[-1] < 0:
+                alternativ = -alternativ
+        else:
+            alternativ = 0
+        print "new tp: "
+        print alternativ
+        print float(alternativ)
+
+        return cable_signature, tp_at, alternativ, 0
+
+    get_signture_function_test.__doc__ = get_signture_function_docsting
+    return get_signture_function_test
+
+
+
+
+
 
 def get_cable_signature_as_theta_function(*arg):
     def get_signture_function(theta):
@@ -434,6 +510,79 @@ def get_untwisted_signature_function(j):
          [((2 * a + 1)/(4 * k + 2), 1 * sgn(j))
          for a in range(k + 1, 2 * k + 1)])
     return SignatureFunction(w)
+
+
+def get_function_of_theta_for_sum_test(*arg, **key_args):
+    if 'verbose' in key_args:
+        verbose_default = key_args['verbose']
+    else:
+        verbose_default = confi.verbose
+    sf0 = SignatureFunction([(0, 0)])
+    sf0_test = SignatureFunction([(0, 0)])
+
+
+    def signature_function_for_sum_test(*thetas, **kwargs):
+        verbose = verbose_default
+        if 'verbose' in kwargs:
+            verbose = kwargs['verbose']
+        la = len(arg)
+        lt = len(thetas)
+        sf = sf0
+        sf_test = sf0_test
+
+        # call with no arguments
+        if lt == 0:
+            return signature_function_for_sum_test(*(la * [0]))
+
+        if lt != la:
+            msg = "This function takes exactly " + str(la) + \
+                  " arguments or no argument at all (" + str(lt) + " given)."
+            raise TypeError(msg)
+
+        # for each cable in cable sum apply theta
+        twisted_part = 0
+        old_twisted_part = 0
+        # T(2, q_0; 2, q_1; 2, q_3) # -T(2, q_1; 2, q_3) #
+        #         # T(2, q_2; 2, q_3) # -T(2, q_0; 2, q_2; 2, q_3)
+        k_1, k_2, k_4 = arg[0]
+        k_3 = arg[2][0]
+        ksi = 1/abs(2 * k_4 + 1)
+        print arg[0]
+        print str(k_1) + " " + str(k_2) + " " + str(k_3) + " " + str(k_4)
+        sigma_q_1 = get_untwisted_signature_function(k_1)
+        sigma_q_2 = get_untwisted_signature_function(k_2)
+        sigma_q_3 = get_untwisted_signature_function(k_3)
+        a_1, a_2, a_3, a_4 = thetas
+        untwisted_part = 2 * (sigma_q_2(ksi * a_1) +
+                              sigma_q_1(ksi * a_1 * 2) -
+                              sigma_q_2(ksi * a_2) +
+                              sigma_q_3(ksi * a_3) -
+                              sigma_q_3(ksi * a_4) -
+                              sigma_q_1(ksi * a_4 * 2))
+        for i, knot in enumerate(arg):
+            try:
+                dssf, otp, tp, up = (get_cable_signature_as_theta_function_test(*knot))(thetas[i])
+                sf += dssf
+                twisted_part += tp
+                old_twisted_part += otp
+            # in case wrong theata value was given
+            except ValueError as e:
+                print "ValueError: " + str(e.args[0]) +\
+                      " Please change " + str(i + 1) + ". parameter."
+                return None
+        print
+        print old_twisted_part
+        print twisted_part
+        print untwisted_part
+
+        if verbose:
+            print
+            print str(thetas)
+            print sf
+        return sf
+    signature_function_for_sum_test.__doc__ = signature_function_for_sum_docstring
+    return signature_function_for_sum_test
+
 
 
 def get_function_of_theta_for_sum(*arg, **key_args):
@@ -559,7 +708,7 @@ search_for_null_signature_value.__doc__ = \
     """
     This function calculates signature functions for knots constracted
     accordinga a schema for a cable sum. The schema is given as an argument
-    or defined in the class MySettings.
+    or defined in the class Config.
     Results of calculations will be writen to a file and the stdout.
     limit is the upper bound for the first value in k_vector,
     i.e k[0] value in a cable sum, where q_0 = 2 * k[0] + 1.
@@ -700,11 +849,11 @@ main.__doc__ = \
     This function is run if the script was called from the terminal.
     It calls another function, search_for_null_signature_value,
     to calculate signature functions for a schema
-    of a cable sum defined in the class MySettings.
+    of a cable sum defined in the class Config.
     Optionaly a parameter (a limit for k_0 value) can be given.
     Thought to be run for time consuming calculations.
     """
-config = MySettings()
+config = Config()
 if __name__ == '__main__' and '__file__' in globals():
     # not called in interactive mode as __file__ is not defined
     main(sys.argv)
