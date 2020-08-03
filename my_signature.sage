@@ -3,48 +3,6 @@
 # TBD: read about Factory Method, variable in docstring, sage documentation
 # move settings to sep file
 
-"""
-This script calculates signature functions for knots (cable sums).
-
-The script can be run as a sage script from the terminal
-or used in interactive mode.
-
-A knot (cable sum) is encoded as a list where each element (also a list)
-corresponds to a cable knot, e.g. a list
-[[1, 3], [2], [-1, -2], [-3]] encodes
-T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7).
-
-To calculate the number of characters for which signature function vanish use
-the function eval_cable_for_null_signature as shown below.
-
-sage: eval_cable_for_null_signature([[1, 3], [2], [-1, -2], [-3]])
-
-T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)
-Zero cases: 1
-All cases: 1225
-Zero theta combinations:
-(0, 0, 0, 0)
-
-sage:
-
-The numbers given to the function eval_cable_for_null_signature are k-values for each
-component/cable in a direct sum.
-
-To calculate signature function for a knot and a theta value, use function
-get_signature_as_theta_function (see help/docstring for details).
-
-About notation:
-Cables that we work with follow a schema:
-    T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
-            # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
-In knot_formula each k[i] is related with some q_i value, where
-q_i = 2*k[i] + 1.
-So we can work in the following steps:
-1) choose a schema/formula by changing the value of knot_formula
-2) set each q_i all or choose range in which q_i should varry
-3) choose vector v / theata vector.
-"""
-
 import os
 import sys
 
@@ -54,23 +12,17 @@ import itertools as it
 import pandas as pd
 import numpy as np
 import re
-import doc_signature
+
 
 
 class Config(object):
     def __init__(self):
         self.f_results = os.path.join(os.getcwd(), "results.out")
 
-        # is the ratio restriction for values in k_vector taken into account
-        # False flag is usefull to make quick script tests
-        self.only_slice_candidates = True
-        self.only_slice_candidates = False
-
         # knot_formula is a schema for knots which signature function
         # will be calculated
         self.knot_formula = "[[k[0], k[1], k[3]], [-k[1], -k[3]], \
                              [k[2], k[3]], [-k[0], -k[2], -k[3]]]"
-
 
         # self.knot_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
         #                      [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
@@ -79,7 +31,23 @@ class Config(object):
         self.limit = 3
 
         self.verbose = True
-        # self.verbose = False
+        self.verbose = False
+
+        self.print_calculations_for_small_signature = True
+        # self.print_calculations_for_small_signature = False
+
+
+        self.print_calculations_for_large_signature = True
+        # self.print_calculations_for_large_signature = False
+
+
+        # is the ratio restriction for values in k_vector taken into account
+        # False flag is usefull to make quick script tests
+        self.only_slice_candidates = True
+        self.only_slice_candidates = False
+
+        self.stop_after_firts_large_signature = True
+        self.stop_after_firts_large_signature = False
 
 
 class SignatureFunction(object):
@@ -93,21 +61,24 @@ class SignatureFunction(object):
     and value encodes the value of the jump. Remember that we treat
     signature functions as defined on the interval [0,1).
     """
-    def __init__(self, values=[]):
+    def __init__(self, values=[], counter=collections.Counter()):
         # set values of signature jumps
-        self.signature_jumps = collections.defaultdict(int)
-        self.ttsignature_jumps = collections.Counter()
-
-        for jump_arg, jump in values:
-            assert 0 <= jump_arg < 1, \
-                "Signature function is defined on the interval [0, 1)."
-            self.signature_jumps[jump_arg] = jump
+        self.signature_jumps = collections.defaultdict(int, counter)
+        self.counter_signature_jumps = counter
+        if not counter:
+            for jump_arg, jump in values:
+                assert 0 <= jump_arg < 1, \
+                    "Signature function is defined on the interval [0, 1)."
+                self.signature_jumps[jump_arg] = jump
+            self.counter_signature_jumps = collections.Counter(self.signature_jumps)
 
     def sum_of_absolute_values(self):
         return sum([abs(i) for i in self.signature_jumps.values()])
 
     def is_zero_everywhere(self):
-        return not any(self.signature_jumps.values())
+        result = not any(self.signature_jumps.values())
+        assert  result == (not any(self.counter_signature_jumps.values()))
+        return result
 
     def double_cover(self):
         # to read values for t^2
@@ -125,8 +96,6 @@ class SignatureFunction(object):
                 new_data.append((2 * jump_arg, jump))
         return SignatureFunction(new_data)
 
-    def get_signture_jump(self, t):
-        return self.signature_jumps.get(t, 0)
 
     def minus_square_root(self):
         # to read values for t^(1/2)
@@ -151,16 +120,11 @@ class SignatureFunction(object):
         new_data = []
         for jump_arg, jump in self.signature_jumps.items():
             new_data.append((jump_arg, -jump))
+        sf = SignatureFunction(new_data)
         return SignatureFunction(new_data)
 
     # TBD short
     def __add__(self, other):
-        print "\n" * 3
-        print "other"
-        print other.signature_jumps
-        print "self"
-        print self.signature_jumps
-        new_signature_function = SignatureFunction()
         new_data = collections.defaultdict(int)
         for jump_arg, jump in other.signature_jumps.items():
             new_data[jump_arg] = jump + self.signature_jumps.get(jump_arg, 0)
@@ -168,28 +132,12 @@ class SignatureFunction(object):
             if jump_arg not in new_data.keys():
                 new_data[jump_arg] = self.signature_jumps[jump_arg]
 
-        tnew_signature_function = SignatureFunction()
-        tnew_data = collections.defaultdict(int)
-        self.ttsignature_jumps = collections.Counter(self.signature_jumps)
-        other.ttsignature_jumps = collections.Counter(other.signature_jumps)
-        for jump_arg, jump in other.ttsignature_jumps.items():
-            tnew_data[jump_arg] = jump + self.ttsignature_jumps.get(jump_arg, 0)
-        for jump_arg, jump in self.ttsignature_jumps.items():
-            if jump_arg not in tnew_data.keys():
-                tnew_data[jump_arg] = self.ttsignature_jumps[jump_arg]
-        tt = other.ttsignature_jumps + self.ttsignature_jumps
-        # tt = dict(tt)
-        tt = collections.defaultdict(int, tt)
-        print "\n" * 3
-        print "tt"
-        print tt
-        print "new_data"
-        print new_data
+        counter = collections.Counter()
+        counter.update(self.counter_signature_jumps)
+        counter.update(other.counter_signature_jumps)
+        assert collections.defaultdict(int, counter) == new_data
+        return SignatureFunction(counter=counter)
 
-        assert new_data == tnew_data
-        new_signature_function.signature_jumps = new_data
-
-        return new_signature_function
 
     def __sub__(self, other):
         return self + other.__neg__()
@@ -197,6 +145,11 @@ class SignatureFunction(object):
     def __str__(self):
         return ''.join([str(jump_arg) + ": " + str(jump) + "\n"
                 for jump_arg, jump in sorted(self.signature_jumps.items())])
+
+    def __repr__(self):
+        result = ''.join([str(jump_arg) + ": " + str(jump) + ", "
+                for jump_arg, jump in sorted(self.signature_jumps.items())])
+        return result[:-2] + "."
 
     def __call__(self, arg):
         # Compute the value of the signature function at the point arg.
@@ -208,22 +161,19 @@ class SignatureFunction(object):
               val += 2 * jump
           elif jump_arg == arg:
               val += jump
-        a = self.sum_of_absolute_values()
-        b = self.is_zero_everywhere()
-        assert (a and not b) or (not a and b)
         return val
 
 
 def main(arg):
     try:
         new_limit = int(arg[1])
-    except:
+    except IndexError:
         new_limit = None
     search_for_large_signature_value(limit=new_limit)
     # search_for_null_signature_value(limit=new_limit)
 
 
-# searching for signture > 5 + #(v_i != 0)
+# searching for signture > 5 + #(v_i != 0) over given knot schema
 def search_for_large_signature_value(knot_formula=None,
                                      limit=None,
                                      verbose=None):
@@ -234,39 +184,51 @@ def search_for_large_signature_value(knot_formula=None,
     if verbose is None:
         vebose = config.verbose
 
+    # number of k_i (q_i) variables to substitute
     k_vector_size = extract_max(knot_formula) + 1
+
     limit = max(limit, k_vector_size)
     combinations = it.combinations(range(1, limit + 1), k_vector_size)
     P = Primes()
 
-    with open(config.f_results, 'w') as f_results:
-        for c in combinations:
-            k = [(P.unrank(i) - 1)/2 for i in c]
-            knot_sum = eval(knot_formula)
-            if config.only_slice_candidates:
-                if not (k[3] > 4 * k[2] and
-                        k[2] > 4 * k[1] and
-                        k[1] > 4 * k[0]):
-                    print "niu niu"
-                    continue
-            result = eval_cable_for_large_signature(knot_sum,
-                                                    print_results=False)
-            # if result is not None:
-            #     knot_description, large_comb, all_comb = result
-            #     line = (str(k) + ", " + str(all_comb) + ", " +
-            #             str(all_comb) + "\n")
-            #     f_results.write(line)
+    # with open(config.f_results, 'w') as f_results:
+    for c in combinations:
+        k = [(P.unrank(i) - 1)/2 for i in c]
+        if config.only_slice_candidates:
+            if not (k[3] > 4 * k[2] and
+                    k[2] > 4 * k[1] and
+                    k[1] > 4 * k[0]):
+                if verbose:
+                    print "Ratio-condition does not hold"
+                continue
+        result = eval_cable_for_large_signature(k_vector=k,
+                                                knot_formula=knot_formula,
+                                                print_results=False)
+
+
 
 # searching for signture > 5 + #(v_i != 0)
-def eval_cable_for_large_signature(knot_sum,
+def eval_cable_for_large_signature(k_vector=None,
+                                   knot_formula=None,
                                    print_results=True,
-                                   verbose=None):
-
-    knot_description = get_knot_descrption(*knot_sum)
-
-
+                                   verbose=None,
+                                   q_vector=None):
+    if knot_formula is None:
+        knot_formula = config.knot_formula
     if verbose is None:
         verbose = config.verbose
+    if k_vector is None:
+        if q_vector is None:
+            # TBD docstring
+            print "Please give a list of k (k_vector) or q values (q_vector)."
+
+    k = k_vector
+    knot_sum = eval(knot_formula)
+    knot_description = get_knot_descrption(*knot_sum)
+
+    k_1, k_2, k_3, k_4 = [abs(i) for i in k]
+    q_4 = 2 * k_4 + 1
+    ksi = 1/q_4
 
     if verbose:
         print "\n\n"
@@ -274,52 +236,32 @@ def eval_cable_for_large_signature(knot_sum,
         print "Searching for a large signature values for the cable sum: "
         print knot_description
 
-
     if len(knot_sum) != 4:
         print "Wrong number of cable direct summands!"
         return None
 
-    f = get_signature_as_theta_function(*knot_sum, verbose=False)
-    # g = get_signature_as_theta_function_test(*knot_sum, verbose=False)
-
-
-    # large_value_combinations = 0
-    # good_thetas_list = []
-
+    # iteration over all possible character combinations
     ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
-
-    q = 2 * abs(knot_sum[-1][-1]) + 1
-    q_4 = q
-
     for v_theta in it.product(*ranges_list):
         theta_squers = [i^2 for i in v_theta]
-        condition = "(" + str(theta_squers[0]) + " - " + str(theta_squers[1]) \
-                    + " + " + str(theta_squers[1]) + " - " + \
-                    str(theta_squers[3]) + ") % " + str(q_4)
-        if verbose:
-            print "\nChecking for characters: " + str(v_theta)
+        condition = "(" + str(theta_squers[0]) \
+                    + " - " + str(theta_squers[1]) \
+                    + " + " + str(theta_squers[2]) \
+                    + " - " + str(theta_squers[3]) \
+                    + ") % " + str(q_4)
+        # if verbose:
+        #     print "\nChecking for characters: " + str(v_theta)
         if (theta_squers[0] - theta_squers[1] +
-            theta_squers[2] - theta_squers[3]) % q:
+            theta_squers[2] - theta_squers[3]) % q_4:
             if verbose:
-                print "Condition not satisfied: " + str(condition) + " != 0."
+                print "The condition is not satisfied: " + \
+                       str(condition) + " != 0."
             continue
 
-        y = f(*v_theta)(1/2)
+        # T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
+        #         # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
 
-
-
-        #
-        #
-        # twisted_part = 0
-        # old_twisted_part = 0
-        # # T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
-        # #         # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
-        k_1, k_2, k_4 = [abs(i) for i in knot_sum[0]]
-        k_3 = abs(knot_sum[2][1])
-        q_4 = 2 * k_4 + 1
-        ksi = 1/q_4
-        print "k values: "
-        print str(k_1) + " " + str(k_2) + " " + str(k_3) + " " + str(k_4)
+        # "untwisted" part (Levine-Tristram signatures)
         sigma_q_1 = get_untwisted_signature_function(k_1)
         sigma_q_2 = get_untwisted_signature_function(k_2)
         sigma_q_3 = get_untwisted_signature_function(k_3)
@@ -331,52 +273,182 @@ def eval_cable_for_large_signature(knot_sum,
                               sigma_q_3(mod_one(ksi * a_4)) -
                               sigma_q_1(mod_one(ksi * a_4 * 2)))
 
-        # tp = [0, 0, 0, 0]
-        # for i, a in enumerate(thetas):
-        #     if a:
-        #         tp[i] = -q_4 + 2 * a - (2 * a^2)/q_4
-        #     print "petla"
-        #     print i
-        #     print tp[i]
-        # print 5 * "\n"
-        # print tp
-        # new_twisted_part = tp[0] - tp[1] + tp[2] - tp[3]
-        # print new_twisted_part
-        #
-        # for i, knot in enumerate(arg):
-        #     try:
-        #         dssf = get_signature_summand_as_theta_function_test(*knot)(thetas[i])
-        #         sf += dssf
-        #     # in case wrong theata value was given
-        #     except ValueError as e:
-        #         print "ValueError: " + str(e.args[0]) +\
-        #               " Please change " + str(i + 1) + ". parameter."
-        #         return None
-        # print "\nold_twisted_part"
-        # print old_twisted_part
-        # print "twisted_part: "
-        # print new_twisted_part
-        # print "untwisted_part: "
-        # print untwisted_part
-        # print "\n\n\n\n" + 50 * "*" + "\nsum " + str(untwisted_part + new_twisted_part)
-        #
-        #
-        #
+        # "twisted" part
+        tp = [0, 0, 0, 0]
+        for i, a in enumerate(v_theta):
+            if a:
+                tp[i] = -q_4 + 2 * a - 2 * (a^2/q_4)
+        twisted_part = tp[0] - tp[1] + tp[2] - tp[3]
+        assert twisted_part == int(twisted_part)
 
-        # j = g(*v_theta)(1/2)
-        # assert y == j
-
-        if abs(y) > 5 + np.count_nonzero(v_theta):
-            print "\n\tLarge signature value"
+        # y = f(*v_theta)(1/2)
+        sigma_v = untwisted_part + twisted_part
+        if abs(sigma_v) > 5 + np.count_nonzero(v_theta):
+            if config.print_calculations_for_large_signature:
+                print "*" * 100
+                print "\n\nLarge signature value\n"
+                print knot_description
+                print "\nv_theta: ",
+                print v_theta
+                print "k values: ",
+                print str(k_1) + " " + str(k_2) + " " + \
+                      str(k_3) + " " + str(k_4)
+                print condition
+                print "non zero value in v_theta: " + \
+                      str(np.count_nonzero(v_theta))
+                print "sigma_v: " + str(sigma_v)
+                print "\ntwisted_part: ",
+                print twisted_part
+                print "untwisted_part: ",
+                print untwisted_part
+                print "\n\nCALCULATIONS"
+                print "*" * 100
+                print_results_LT(v_theta, knot_description,
+                                 ksi, untwisted_part,
+                                 k, sigma_q_1, sigma_q_2, sigma_q_3)
+                print_results_sigma(v_theta, knot_description, tp, q_4)
+                print "*" * 100 + "\n" * 5
+            else:
+                print knot_description + "\t" + str(v_theta) +\
+                      "\t" + str(sigma_v)
+            if config.stop_after_firts_large_signature:
+                break
         else:
-            print "\n\tSmall signature value"
-        print knot_description
-        print "v_theta: " + str(v_theta)
-        print condition
-        print "non zero value in v_theta: " + str(np.count_nonzero(v_theta))
-        print "signature at 1/2: " + str(y)
+            if config.print_calculations_for_small_signature:
+                print "\n" * 5 + "*" * 100
+                print "\nSmall signature value\n"
+                print knot_description
+                print_results_LT(v_theta, knot_description, ksi, untwisted_part,
+                                 k, sigma_q_1, sigma_q_2, sigma_q_3)
+                print_results_sigma(v_theta, knot_description, tp, q_4)
+                print "*" * 100 + "\n" * 5
+
+
+        # else:
+        #     print "\n\tSmall signature value"
+        #     print knot_description
+        #     print "v_theta: " + str(v_theta)
+        #     print condition
+        #     print "non zero value in v_theta: " + str(np.count_nonzero(v_theta))
+        #     print "signature at 1/2: " + str(y)
     return None
 
+
+def print_results_LT(v_theta, knot_description, ksi, untwisted_part,
+                     k, sigma_q_1, sigma_q_2, sigma_q_3):
+            a_1, a_2, a_3, a_4 = v_theta
+            k_1, k_2, k_3, k_4 = [abs(i) for i in k]
+            print "\n\nLevine-Tristram signatures for the cable sum:  "
+            print knot_description
+            print "and characters:\n" + str(v_theta) + ","
+            print "ksi = " + str(ksi)
+            print "\n\n2 * (sigma_q_2(ksi * a_1) + " + \
+                    "sigma_q_1(ksi * a_1 * 2) - " +\
+                    "sigma_q_2(ksi * a_2) + " +\
+                    "sigma_q_3(ksi * a_3) - " +\
+                    "sigma_q_3(ksi * a_4) - " +\
+                    "sigma_q_1(ksi * a_4 * 2))" +\
+                    \
+                    " = \n\n2 * (sigma_q_2(" + \
+                    str(ksi) + " * " + str(a_1) + \
+                    ") + sigma_q_1(" + \
+                    str(ksi) + " * " + str(a_1) + " * 2" + \
+                    ") - sigma_q_2(" + \
+                    str(ksi) + " * " + str(a_2) + \
+                    ") + sigma_q_3(" + \
+                    str(ksi) + " * " + str(a_3) + \
+                    ") - sigma_q_3(" + \
+                    str(ksi) + " * " + str(a_4) + \
+                    ") - sigma_q_1(" + \
+                    str(ksi) + " * " + str(a_4) + " * 2)) " + \
+                    \
+                    " = \n\n2 * (sigma_q_2(" + \
+                    str(mod_one(ksi * a_1)) + \
+                    ") + sigma_q_1(" + \
+                    str(mod_one(ksi * a_1 * 2)) + \
+                    ") - sigma_q_2(" + \
+                    str(mod_one(ksi * a_2)) + \
+                    ") + sigma_q_3(" + \
+                    str(mod_one(ksi * a_3)) + \
+                    ") - sigma_q_3(" + \
+                    str(mod_one(ksi * a_4)) + \
+                    ") - sigma_q_1(" + \
+                    str(mod_one(ksi * a_4 * 2)) + \
+                    \
+                    ") = \n\n2 * ((" + \
+                    str(sigma_q_2(mod_one(ksi * a_1))) + \
+                    ") + (" + \
+                    str(sigma_q_1(mod_one(ksi * a_1 * 2))) + \
+                    ") - (" + \
+                    str(sigma_q_2(mod_one(ksi * a_2))) + \
+                    ") + (" + \
+                    str(sigma_q_3(mod_one(ksi * a_3))) + \
+                    ") - (" + \
+                    str(sigma_q_3(mod_one(ksi * a_4))) + \
+                    ") - (" + \
+                    str(sigma_q_1(mod_one(ksi * a_4 * 2))) + ")) = " + \
+                    "\n\n2 * (" + \
+                    str(sigma_q_2(mod_one(ksi * a_1)) +
+                    sigma_q_1(mod_one(ksi * a_1 * 2)) -
+                    sigma_q_2(mod_one(ksi * a_2)) +
+                    sigma_q_3(mod_one(ksi * a_3)) -
+                    sigma_q_3(mod_one(ksi * a_4)) -
+                    sigma_q_1(mod_one(ksi * a_4 * 2))) + \
+                    ") = " + str(untwisted_part)
+            print "\nSignatures:"
+            print "\nq_1 = " + str(2 * k_1 + 1) + ": " + repr(sigma_q_1)
+            print "\nq_2 = " + str(2 * k_2 + 1) + ": " + repr(sigma_q_2)
+            print "\nq_3 = " + str(2 * k_3 + 1) + ": " + repr(sigma_q_3)
+
+
+def print_results_sigma(v_theta, knot_description, tp, q_4):
+            a_1, a_2, a_3, a_4 = v_theta
+
+            print "\n\nSigma values for the cable sum:  "
+            print knot_description
+            print "and characters: " + str(v_theta)
+            print "\nsigma(T_{2, q_4}, ksi_a) = " + \
+                  "-q + (2 * a * (q_4 - a)/q_4) " +\
+                  "= -q + 2 * a - 2 * a^2/q_4 if a != 0,\n\t\t\t" +\
+                  " = 0 if a == 0."
+            print "\nsigma(T_{2, q_4}, chi_a_1) = ",
+            if a_1:
+                print "- (" + str(q_4) + ") + 2 * " + str(a_1) + " + " +\
+                      "- 2 * " + str(a_1^2) + "/" + str(q_4) + \
+                      " = " + str(tp[0])
+            else:
+                print "0"
+            print "\nsigma(T_{2, q_4}, chi_a_2) = ",
+            if a_2:
+                print "- (" + str(q_4) + ") + 2 * " + str(a_2) + " + " +\
+                      "- 2 * " + str(a_2^2) + "/" + str(q_4) + \
+                      " = " + str(tp[1])
+            else:
+                print "0",
+            print "\nsigma(T_{2, q_4}, chi_a_3) = ",
+            if a_3:
+                print "- (" + str(q_4) + ") + 2 * " + str(a_3) + " + " +\
+                      "- 2 * " + str(a_3^2) + "/" + str(q_4) + \
+                      " = " + str(tp[2])
+            else:
+                print "0",
+            print "\nsigma(T_{2, q_4}, chi_a_4) = ",
+            if a_4:
+                print "- (" + str(q_4) + ") + 2 * " + str(a_4) + " + " +\
+                      "- 2 * " + str(a_4^2) + "/" + str(q_4) + \
+                      " = " + str(tp[3])
+            else:
+                print "0"
+
+            print "\n\nsigma(T_{2, q_4}, chi_a_1) " + \
+                    "- sigma(T_{2, q_4}, chi_a_2) " + \
+                    "+ sigma(T_{2, q_4}, chi_a_3) " + \
+                    "- sigma(T_{2, q_4}, chi_a_4) =\n" + \
+                    "sigma(T_{2, q_4}, " + str(a_1) + \
+                    ") - sigma(T_{2, q_4}, " + str(a_2) + \
+                    ") + sigma(T_{2, q_4}, " + str(a_3) + \
+                    ") - sigma(T_{2, q_4}, " + str(a_4) + ") = " + \
+                    str(tp[0] - tp[1] + tp[2] - tp[3])
 
 # searching for signature == 0
 def search_for_null_signature_value(knot_formula=None, limit=None):
@@ -390,18 +462,15 @@ def search_for_null_signature_value(knot_formula=None, limit=None):
                                                     k_vector_size)
 
     with open(config.f_results, 'w') as f_results:
+
         for k in combinations:
-            # print
-            # print k
-            # TBD:  maybe the following condition or the function
-            # get_shifted_combination should be redefined to a dynamic version
             if config.only_slice_candidates and k_vector_size == 5:
                 k = get_shifted_combination(k)
-            # print k
             knot_sum = eval(knot_formula)
-
             if is_trivial_combination(knot_sum):
+                print knot_sum
                 continue
+
             result = eval_cable_for_null_signature(knot_sum)
             if result is not None:
                 knot_description, null_comb, all_comb = result
@@ -426,7 +495,7 @@ def eval_cable_for_null_signature(knot_sum, print_results=False, verbose=None):
         print
         print knot_description
     for v_theta in it.product(*ranges_list):
-        if f(*v_theta, verbose=False).sum_of_absolute_values() == 0:
+        if f(*v_theta, verbose=False).is_zero_everywhere():
             zero_theta_combinations.append(v_theta)
             m = len([theta for theta in v_theta if theta != 0])
             null_combinations += 2^m
@@ -497,52 +566,6 @@ def get_blanchfield_for_pattern(k_n, theta):
         results.append((1 - e * ksi, 1 * sgn(k_n)))
     return SignatureFunction(results)
 
-def get_signature_summand_as_theta_function_test(*arg):
-
-    sf = SignatureFunction([(0, 0)])
-
-    def get_signture_function_test(theta):
-        # untwisted part
-        k_n = abs(arg[-1])
-        cable_signature = sf
-        # print k_0, k_1, k_2, k_3
-
-        for i, k in enumerate(arg[:-1][::-1]):
-            ksi = 1/(2 * k_n + 1)
-            power = 2^i
-            a = get_untwisted_signature_function(k)
-            shift = theta * ksi * power
-            b = a >> shift
-            c = a << shift
-            for _ in range(i):
-                b = b.double_cover()
-                c = c.double_cover()
-            cable_signature += b + c
-
-        if theta > k_n:
-            msg = "k for the pattern in the cable is " + str(arg[-1]) + \
-                  ". Parameter theta should not be larger than abs(k)."
-            raise ValueError(msg)
-
-        # twisted part
-        tp = get_blanchfield_for_pattern(arg[-1], theta)
-        cable_signature += tp
-        print "\ncs: "
-        print cable_signature(1/2)
-        tp_at = tp(1/2)
-        print "tp: "
-        print tp_at
-
-        return cable_signature
-
-    get_signture_function_test.__doc__ = get_signture_function_docsting
-    return get_signture_function_test
-
-
-
-
-
-
 def get_signature_summand_as_theta_function(*arg):
     def get_signture_function(theta):
         # TBD: another formula (for t^2) description
@@ -568,108 +591,21 @@ def get_signature_summand_as_theta_function(*arg):
                 b = b.double_cover()
                 c = c.double_cover()
             cable_signature += b + c
+            test = b - c
+            test2 = -c + b
+            assert test == test
         return cable_signature
     get_signture_function.__doc__ = get_signture_function_docsting
     return get_signture_function
 
 
 def get_untwisted_signature_function(j):
-    """This function returns the signature function of the T_{2,2k+1}
-    torus knot."""
+    # return the signature function of the T_{2,2k+1} torus knot
     k = abs(j)
     w = ([((2 * a + 1)/(4 * k + 2), -1 * sgn(j)) for a in range(k)] +
          [((2 * a + 1)/(4 * k + 2), 1 * sgn(j))
          for a in range(k + 1, 2 * k + 1)])
     return SignatureFunction(w)
-
-
-def get_signature_as_theta_function_test(*arg, **key_args):
-    if 'verbose' in key_args:
-        verbose_default = key_args['verbose']
-    else:
-        verbose_default = config.verbose
-    sf0 = SignatureFunction([(0, 0)])
-    sf0_test = SignatureFunction([(0, 0)])
-
-
-    def signature_as_theta_function_test(*thetas, **kwargs):
-        verbose = verbose_default
-        if 'verbose' in kwargs:
-            verbose = kwargs['verbose']
-        la = len(arg)
-        lt = len(thetas)
-        sf = sf0
-        sf_test = sf0_test
-
-        # call with no arguments
-        if lt == 0:
-            return signature_as_theta_function_test(*(la * [0]))
-
-        if lt != la:
-            msg = "This function takes exactly " + str(la) + \
-                  " arguments or no argument at all (" + str(lt) + " given)."
-            raise TypeError(msg)
-
-        # for each cable in cable sum apply theta
-        twisted_part = 0
-        old_twisted_part = 0
-        # T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
-        #         # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
-        k_1, k_2, k_4 = [abs(i) for i in arg[0]]
-        k_3 = abs(arg[2][0])
-        ksi = 1/(2 * k_4 + 1)
-        print arg[0]
-        print str(k_1) + " " + str(k_2) + " " + str(k_3) + " " + str(k_4)
-        sigma_q_1 = get_untwisted_signature_function(k_1)
-        sigma_q_2 = get_untwisted_signature_function(k_2)
-        sigma_q_3 = get_untwisted_signature_function(k_3)
-        a_1, a_2, a_3, a_4 = thetas
-        untwisted_part = 2 * (sigma_q_2(ksi * a_1) +
-                              sigma_q_1(ksi * a_1 * 2) -
-                              sigma_q_2(ksi * a_2) +
-                              sigma_q_3(ksi * a_3) -
-                              sigma_q_3(ksi * a_4) -
-                              sigma_q_1(ksi * a_4 * 2))
-        q_4 = 2 * k_4 + 1
-        tp = [0, 0, 0, 0]
-        for i, a in enumerate(thetas):
-            if a:
-                tp[i] = -q_4 + 2 * a - (2 * a^2)/q_4
-            print "petla"
-            print i
-            print tp[i]
-        print 5 * "\n"
-        print tp
-        new_twisted_part = tp[0] - tp[1] + tp[2] - tp[3]
-        print new_twisted_part
-
-        for i, knot in enumerate(arg):
-            try:
-                dssf = get_signature_summand_as_theta_function_test(*knot)(thetas[i])
-                sf += dssf
-            # in case wrong theata value was given
-            except ValueError as e:
-                print "ValueError: " + str(e.args[0]) +\
-                      " Please change " + str(i + 1) + ". parameter."
-                return None
-        print "\nold_twisted_part"
-        print old_twisted_part
-        print "twisted_part: "
-        print new_twisted_part
-        print "untwisted_part: "
-        print untwisted_part
-        print "\n\n\n\n" + 50 * "*" + "\nsum " + str(untwisted_part + new_twisted_part)
-        print "old sum at 1/2: "
-        print sf(1/2)
-
-        if verbose:
-            print
-            print str(thetas)
-            print sf
-        return sf
-    signature_as_theta_function_test.__doc__ = signature_as_theta_function_docstring
-    return signature_as_theta_function_test
-
 
 
 def get_signature_as_theta_function(*arg, **key_args):
@@ -740,6 +676,7 @@ def get_knot_descrption(*arg):
             description += "2, " + str(2 * abs(k) + 1) + "; "
         description = description[:-2] + ") # "
     return description[:-3]
+
 
 get_blanchfield_for_pattern.__doc__ = \
     """
@@ -947,3 +884,45 @@ if __name__ == '__main__':
     if '__file__' in globals():
         # skiped in interactive mode as __file__ is not defined
         main(sys.argv)
+
+"""
+This script calculates signature functions for knots (cable sums).
+
+The script can be run as a sage script from the terminal
+or used in interactive mode.
+
+A knot (cable sum) is encoded as a list where each element (also a list)
+corresponds to a cable knot, e.g. a list
+[[1, 3], [2], [-1, -2], [-3]] encodes
+T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7).
+
+To calculate the number of characters for which signature function vanish use
+the function eval_cable_for_null_signature as shown below.
+
+sage: eval_cable_for_null_signature([[1, 3], [2], [-1, -2], [-3]])
+
+T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)
+Zero cases: 1
+All cases: 1225
+Zero theta combinations:
+(0, 0, 0, 0)
+
+sage:
+
+The numbers given to the function eval_cable_for_null_signature are k-values for each
+component/cable in a direct sum.
+
+To calculate signature function for a knot and a theta value, use function
+get_signature_as_theta_function (see help/docstring for details).
+
+About notation:
+Cables that we work with follow a schema:
+    T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
+            # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
+In knot_formula each k[i] is related with some q_i value, where
+q_i = 2*k[i] + 1.
+So we can work in the following steps:
+1) choose a schema/formula by changing the value of knot_formula
+2) set each q_i all or choose range in which q_i should varry
+3) choose vector v / theata vector.
+"""
