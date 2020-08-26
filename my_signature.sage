@@ -216,22 +216,36 @@ class TorusCable(object):
                 return None
             else:
                 k_vector = [(q - 1)/2 for q in q_vector]
-        # elif q_vector is None:
-        #         q_vector = [2 * k + 1 for k in k_vector]
-        # self.knot_sum = eval(knot_formula)
+        elif q_vector is None:
+                q_vector = [2 * k + 1 for k in k_vector]
         self.knot_formula = knot_formula
         self.k_vector = k_vector
         self.q_vector = q_vector
         k = k_vector
+        self.knot_sum = eval(knot_formula)
         self.knot_description = get_knot_descrption(*self.knot_sum)
         self.sigma_function = None
 
+    # check sigma for all v = s * [a_1, a_2, a_3, a_4] for s in [1, q_4 - 1]
+    def __is_sigma_for_vector_class_big(self, theta_vector):
+        [a_1, a_2, a_3, a_4] = theta_vector
+        q_4 = self.q_vector[3]
+        for shift in range(1, q_4):
+            shifted_theta = [(shift * a) % q_4 for a in
+                             [a_1, a_2, a_3, a_4]]
+            sigma_v = self.__calculate_sigma(shifted_theta)
+            if abs(sigma_v) > 5 + np.count_nonzero(shifted_theta):
+                return True
+        return False
+
+
     def is_sigma_for_vector_class_big(self, theta_vector):
-        return True
+        if self.sigma_function is None:
+            self.sigma_function = self.__get_sigma_function()
+        return self.__is_sigma_for_vector_class_big(theta_vector)
 
 
     def __get_sigma_function(self):
-        print("settinf the function ")
         k_1, k_2, k_3, k_4 = [abs(k) for k in self.k_vector]
         q_4 = 2 * k_4 + 1
         ksi = 1/q_4
@@ -267,180 +281,98 @@ class TorusCable(object):
     def __calculate_sigma(self, theta_vector):
         return self.sigma_function(theta_vector)
 
-# searching for sigma > 5 + #(v_i != 0)
+    def check_combinations_in_range(self, range_list):
+        if self.sigma_function is None:
+            self.sigma_function = self.__get_sigma_function()
+        large_sigma_for_all_combinations = True
+        bad_vectors = []
+        good_vectors = []
+        q_4 = self.q_vector[-1]
+        for vector in range_list:
+            a_1, a_2, a_3, a_4 = vector
+            if a_1 == a_2 == a_3 == a_4:
+                continue
+            if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
+                continue
 
+
+            if self.__is_sigma_for_vector_class_big(vector):
+                good_vectors.append(vector)
+                pass
+            else:
+                bad_vectors.append(vector)
+                large_sigma_for_all_combinations = False
+        return good_vectors, bad_vectors
+
+
+
+    # def is_condition_for_vector_class_fulfilled(vector):
+    #     a_1, a_2, a_3, a_4 = vector
+    #     q_4 = self.q_vector[-1]
+    #     # check assumption - for results != 0 mod q_4 we stop here
+    #     if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
+    #         return None
+    #     if self.sigma_function is None:
+    #         self.sigma_function = self.__get_sigma_function()
+    #     return self.__is_sigma_for_vector_class_big(theta_vector)
+
+
+# searching for sigma > 5 + #(v_i != 0)
 def eval_cable_for_large_sigma(k_vector=None, knot_formula=None,
                                print_results=True, verbose=None,
                                q_vector=None):
+
     cable = TorusCable(knot_formula=knot_formula, k_vector=k_vector,
                        q_vector=q_vector)
-    # k is a k_vector
-    k = cable.k_vector
-    knot_description = cable.knot_description
-    print("\n" * 5)
-    print(knot_description)
-    k_1, k_2, k_3, k_4 = [abs(i) for i in k]
-    q_4 = 2 * k_4 + 1
-    ksi = 1/q_4
+
+    q = cable.q_vector[-1]
 
     if verbose:
         print("\n\n")
         print(100 * "*")
         print("Searching for a large signature values for the cable sum: ")
-        print(knot_description)
+    print(cable.knot_description)
 
-    large_sigma_for_all_v_combinations = True
-    bad_vectors = []
-    good_vectors = []
+    list_of_ranges = [
+                # all characters a_1, a_2, a_3, a_4 != 0
+                it.product(range(1, q), range(1, q), range(1, q), range(1, 2)),
 
-    # iteration over all possible character combinations
-    # T(2, q_1; 2, q_2; 2, q_4) # -T(2, q_2; 2, q_4) #
-    #         # T(2, q_3; 2, q_4) # -T(2, q_1; 2, q_3; 2, q_4)
-    last_theta = 1
-    large_sigma_for_last_theta_non_zero = True
-    for vector in it.product(range(q_4), range(q_4), range(q_4)):
-        v_theta = list(vector)
-        v_theta.append(last_theta)
+                # a_1 == 0, a_2, a_3, a_4 != 0
+                it.product(range(1), range(1, q), range(1, q), range(1, 2)),
+                # a_2 == 0, a_1, a_3, a_4 != 0
+                it.product(range(1, q), range(1), range(1, q), range(1, 2)),
+                # a_3 == 0, a_1, a_2, a_4 != 0
+                it.product(range(1, q), range(1, q), range(1), range(1, 2)),
+                # a_4 == 0, a_1, a_2, a_3 != 0
+                it.product(range(1, q), range(1, q), range(1, 2), range(1)),
 
-        a_1, a_2, a_3 = list(vector)
-        a_4 = last_theta
-        assert [a_1, a_2, a_3, a_4] == v_theta
-        if a_1 == a_2 == a_3:
-            if a_3 == 0:
-                print("\na_1 == a_2 == a_3 == 0")
-                continue
-            elif a_3 == a_4:
-                print("\nall a_i == a != 0")
-                continue
+                # a_1 == 0, a_2 == 0, a_3, a_4 != 0
+                it.product(range(1), range(1), range(1, q), range(1, 2)),
+                # a_1 == 0, a_3 == 0, a_2, a_4 != 0
+                it.product(range(1), range(1, q), range(1), range(1, 2)),
+                # a_1 == 0, a_4 == 0, a_3, a_2 != 0
+                it.product(range(1), range(1, q), range(1, 2), range(1)),
+                # a_2 == 0, a_3 == 0, a_1, a_4 != 0
+                it.product(range(1, q), range(1), range(1), range(1, 2)),
+                # a_2 == 0, a_4 == 0, a_1, a_3 != 0
+                it.product(range(1, q), range(1), range(1, 2), range(1)),
+                # a_3 == 0, a_4 == 0, a_1, a_2 != 0
+                it.product(range(1, q), range(1, 2), range(1), range(1)),
 
-        if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
-            continue
-
-        # print("\t\t\tMultiplication of the vector " + str(v_theta))
-        large_sigma_for_this_vector = False
-        for shift in range(1, q_4):
-            # print("shift = " + str(shift) + ", q_4 = " + str(q_4))
-            shifted_theta = [(shift * a) % q_4 for a in
-                             [a_1, a_2, a_3, a_4]]
+                ]
+    for ranges in list_of_ranges:
+        good_vectors, bad_vectors  = cable.check_combinations_in_range(ranges)
 
 
+        print("good_vectors : bad_vectors: " + str(len(good_vectors)) +\
+              " : " + str(len(bad_vectors)))
+        #
+        # print("\ngood_vectors")
+        # print(len(good_vectors))
+        # print("\nbad_vectors")
+        # print(len(bad_vectors))
+        # print(bad_vectors)
 
-            sigma_v = cable.calculate_sigma(shifted_theta)
-
-            if abs(sigma_v) > 5 + np.count_nonzero(shifted_theta):
-                large_sigma_for_this_vector = True
-                break
-
-        if large_sigma_for_this_vector:
-            good_vectors.append(v_theta)
-            pass
-        else:
-            bad_vectors.append(v_theta)
-            large_sigma_for_last_theta_non_zero = False
-
-    print("\ngood_vectors")
-    print(len(good_vectors))
-    print("\nbad_vectors")
-    print(len(bad_vectors))
-    print(bad_vectors)
-    bad_vectors = []
-    good_vectors = []
-
-    large_sigma_for_last_theta_zero = True
-    for vector in it.product(range(q_4), range(q_4)):
-        v_theta = list(vector)
-        v_theta.append(1)
-        v_theta.append(0)
-        a_1, a_2 = vector
-        a_3 = 1
-        a_4 = 0
-        assert [a_1, a_2, a_3, a_4] == v_theta
-
-        if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
-            continue
-
-        # print("\t\t\tMultiplication of the vector " + str(v_theta))
-        large_sigma_for_this_vector = False
-        for shift in range(1, q_4):
-            # print("shift = " + str(shift) + ", q_4 = " + str(q_4))
-            shifted_theta = [(shift * a) % q_4 for a in
-                             [a_1, a_2, a_3, a_4]]
-
-            sigma_v = cable.calculate_sigma(shifted_theta)
-
-
-            if abs(sigma_v) > 5 + np.count_nonzero(shifted_theta):
-                large_sigma_for_this_vector = True
-                break
-
-        if large_sigma_for_this_vector:
-            good_vectors.append(v_theta)
-            pass
-        else:
-            bad_vectors.append(v_theta)
-            large_sigma_for_last_theta_zero = False
-            # break
-
-    print("\ngood_vectors")
-    print(len(good_vectors))
-    print("\nbad_vectors")
-    print(len(bad_vectors))
-    print(bad_vectors)
-    bad_vectors = []
-    good_vectors = []
-
-    print("\n\nNic nie ma")
-    for vector in range(q_4):
-        v_theta = [vector]
-        v_theta.append(1)
-        v_theta.append(0)
-        v_theta.append(last_theta)
-        a_1 = vector
-        a_2 = 1
-        a_3 = 0
-        a_4 = last_theta
-        assert [a_1, a_2, a_3, a_4] == v_theta
-        if a_1 == a_2 == a_3:
-            if a_3 == 0:
-                print("\na_1 == a_2 == a_3 == 0")
-                continue
-            elif a_3 == a_4:
-                print("\nall a_i == a != 0")
-                continue
-
-        if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
-            continue
-
-        # print("\t\t\tMultiplication of the vector " + str(v_theta))
-        large_sigma_for_this_vector = False
-        for shift in range(1, q_4):
-            # print("shift = " + str(shift) + ", q_4 = " + str(q_4))
-            shifted_theta = [(shift * a) % q_4 for a in
-                             [a_1, a_2, a_3, a_4]]
-
-            sigma_v = cable.calculate_sigma(shifted_theta)
-            if abs(sigma_v) > 5 + np.count_nonzero(shifted_theta):
-                large_sigma_for_this_vector = True
-                break
-
-        if large_sigma_for_this_vector:
-            good_vectors.append(v_theta)
-            pass
-        else:
-            bad_vectors.append(v_theta)
-            large_sigma_for_last_theta_zero = False
-            # break
-
-
-    if large_sigma_for_last_theta_non_zero and large_sigma_for_last_theta_zero:
-            print(100 * "\n\nHURA HURA")
-            print(knot_description)
-
-    print("\ngood_vectors")
-    print(len(good_vectors))
-    print("\nbad_vectors")
-    print(len(bad_vectors))
-    print(bad_vectors)
     return None
 
 
@@ -648,11 +580,11 @@ def eval_cable_for_null_signature(knot_sum, print_results=False, verbose=None):
     null_combinations = 0
     zero_theta_combinations = []
 
-    ranges_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
+    range_list = [range(abs(knot[-1]) + 1) for knot in knot_sum]
     if verbose:
         print()
         print(knot_description)
-    for v_theta in it.product(*ranges_list):
+    for v_theta in it.product(*range_list):
         if f(*v_theta, verbose=False).is_zero_everywhere():
             zero_theta_combinations.append(v_theta)
             m = len([theta for theta in v_theta if theta != 0])
