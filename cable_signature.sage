@@ -2,7 +2,7 @@
 import collections
 import numpy as np
 import itertools as it
-import re
+
 
 class TorusCable(object):
     def __init__(self, knot_formula, k_vector=None, q_vector=None):
@@ -347,25 +347,18 @@ class TorusCable(object):
             if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
                 continue
             if all(a in [1, q_4 - 1] for a in vector):
-                is_all_one = True
-            else:
-                is_all_one = False
+                continue
             if self.__is_sigma_for_vector_class_big(vector):
                 good_vectors.append(vector)
-                # if is_all_one:
-                #     print("\nHURA" * 100)
-                #     print(self.knot_description)
-                #     self.__tmp_print_all_sigma_for_vector_class(vector)
                 # pass
             else:
-                if is_all_one:
-                    self.__tmp_get_max_sigma_for_vector_class(vector)
                 bad_vectors.append(vector)
-                #####################################################
-                if len(bad_vectors) > 8:
-                    break
-                ####################################################
-                large_sigma_for_all_combinations = False
+                # large_sigma_for_all_combinations = False
+                # if len(bad_vectors) > 8:
+                #     break
+        print(len(bad_vectors))
+        if a_1 and a_2 and a_3 and a_4:
+            assert len(bad_vectors) % 8 == 0
         return good_vectors, bad_vectors
 
     # searching for sigma > 5 + #(v_i != 0)
@@ -399,9 +392,9 @@ class TorusCable(object):
         if print_results:
             print("good : bad:\t " + str(number_of_all_good_v) +\
                   " : " + str(len(all_bad_vectors)))
-            if len(all_bad_vectors) < 8:
-                print()
-                print(all_bad_vectors)
+            # if len(all_bad_vectors) < 8:
+            #     print()
+            #     print(all_bad_vectors)
 
 
         return all_combinations_pass
@@ -429,7 +422,6 @@ class SignatureFunction(object):
     def __init__(self, values=None, counter=None):
         # set values of signature jumps
         if counter is None:
-            counter = collections.Counter()
             if values is None:
                 values = []
             assert all(x < 1 for x, y in values),\
@@ -482,7 +474,6 @@ class SignatureFunction(object):
         counter.subtract(self.cnt_signature_jumps)
         return SignatureFunction(counter=counter)
 
-    # TBD short
     def __add__(self, other):
         counter = copy(self.cnt_signature_jumps)
         counter.update(other.cnt_signature_jumps)

@@ -6,17 +6,14 @@
 import os
 import sys
 
-import collections
-# import inspect
 import itertools as it
-import numpy as np
 import re
-# try:
-#     from cable_signature import SignatureFunction, TorusCable
-# except ModuleNotFoundError:
-os.system('sage --preparse cable_signature.sage')
-os.system('mv cable_signature.sage.py cable_signature.py')
-from cable_signature import SignatureFunction, TorusCable
+#
+# if not os.path.isfile('cable_signature.py'):
+#     os.system('sage --preparse cable_signature.sage')
+#     os.system('mv cable_signature.sage.py cable_signature.py')
+# from cable_signature import SignatureFunction, TorusCable
+#
 
 class Config(object):
     def __init__(self):
@@ -45,7 +42,7 @@ class Config(object):
         self.verbose = False
 
         self.print_results = True
-        # self.print_results = False
+        self.print_results = False
 
         self.print_calculations_for_large_sigma = True
         self.print_calculations_for_large_sigma = False
@@ -84,29 +81,36 @@ class Config(object):
             # a_3 == 0, a_4 == 0, a_1, a_2 != 0
             it.product(range(1, q), range(1, 2), range(1), range(1)),
             ]
-        # list_of_ranges = [
-        #     # all characters a_1, a_2, a_3, a_4 != 0
-        #     # 1, 1, 1, 1
-        #     it.product(range(1, 2), range(1, 2), range(1, 2), range(1, 2)),
-        #
-        #     # -1, -1, -1, 1
-        #     it.product(range(q - 1, q), range(q - 1, q), range(q - 1, q), range(1, 2)),
-        #
-        #     # 1, -1, -1, 1
-        #     it.product(range(1, 2), range(q - 1, q), range(q - 1, q), range(1, 2)),
-        #     # -1 , -1, 1, 1
-        #     it.product(range(q - 1, q), range(q - 1, q), range(1, 2), range(1, 2)),
-        #     # -1, 1, -1, 1
-        #     it.product(range(q - 1, q), range(1, 2), range(q - 1, q), range(1, 2)),
-        #
-        #     # 1, 1, -1, 1
-        #     it.product(range(1, 2), range(1, 2), range(q - 1, q), range(1, 2)),
-        #     # 1, -1, 1, 1
-        #     it.product(range(1, 2), range(q - 1, q), range(1, 2), range(1, 2)),
-        #     # -1, 1, 1, 1
-        #     it.product(range(q - 1, q), range(1, 2), range(1, 2), range(1, 2)),
-        #
-        # ]
+
+        list_of_ranges =
+            [
+            # all characters a_1, a_2, a_3, a_4 != 0
+            # 1, 1, 1, 1
+            it.product(range(1, 2), range(1, 2), range(1, 2), range(1, 2)),
+
+            # -1, -1, -1, 1
+            it.product(range(q - 1, q), range(q - 1, q), range(q - 1, q), \
+                                                                range(1, 2)),
+
+            # 1, -1, -1, 1
+            it.product(range(1, 2), range(q - 1, q), range(q - 1, q), \
+                                                                range(1, 2)),
+            # -1 , -1, 1, 1
+            it.product(range(q - 1, q), range(q - 1, q), range(1, 2), \
+                                                                range(1, 2)),
+            # -1, 1, -1, 1
+            it.product(range(q - 1, q), range(1, 2), range(q - 1, q), \
+                                                                range(1, 2)),
+            # 1, 1, -1, 1
+            it.product(range(1, 2), range(1, 2), range(q - 1, q), \
+                                                                range(1, 2)),
+            # 1, -1, 1, 1
+            it.product(range(1, 2), range(q - 1, q), range(1, 2), \
+                                                                range(1, 2)),
+            # -1, 1, 1, 1
+            it.product(range(q - 1, q), range(1, 2), range(1, 2), \
+                                                                range(1, 2)),
+            ]
 
         return list_of_ranges
 
@@ -120,8 +124,6 @@ def main(arg):
         limit = None
     knots_with_large_sigma = search_for_large_signature_value(limit=limit)
     # search_for_null_signature_value(limit=limit)
-
-
 
 # searching for sigma > 5 + #(v_i != 0) over given knot schema
 def __search_for_large_signature_value(knot_formula, limit,
@@ -140,6 +142,7 @@ def __search_for_large_signature_value(knot_formula, limit,
         q[3] = P.next(q[2] * 4 + q[3])
         cable = TorusCable(knot_formula=knot_formula, q_vector=q)
         list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
+        print(cable.knot_description)
         if cable.eval_cable_for_large_sigma(list_of_ranges, verbose=verbose,
                                             print_results=print_results):
             good_knots.append(cable)
@@ -173,6 +176,7 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
         k = [(P.unrank(i + config.start_shift) - 1)/2 for i in c]
         cable = TorusCable(knot_formula=knot_formula, k_vector=k)
         list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
+        print(cable.knot_description)
         if cable.eval_cable_for_large_sigma(list_of_ranges, verbose=verbose,
                                             print_results=print_results):
             good_knots.append(cable)
