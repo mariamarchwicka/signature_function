@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 # TBD: read about Factory Method, variable in docstring, sage documentation
-# move settings to sep file
 
 import os
 import sys
@@ -13,7 +12,7 @@ import re
 #     os.system('sage --preparse cable_signature.sage')
 #     os.system('mv cable_signature.sage.py cable_signature.py')
 # from cable_signature import SignatureFunction, TorusCable
-#
+
 
 class Config(object):
     def __init__(self):
@@ -42,115 +41,58 @@ class Config(object):
         self.verbose = False
 
         self.print_results = True
-        self.print_results = False
+        # self.print_results = False
 
         self.print_calculations_for_large_sigma = True
         self.print_calculations_for_large_sigma = False
 
-        # is the ratio restriction for values in k_vector taken into account
-        # False flag is usefull to make quick script tests
+        # is the ratio restriction for values in q_vector taken into account
         self.only_slice_candidates = True
         self.only_slice_candidates = False
 
 
     # range for a_i, v = [a_1, a_2, a_3, a_4], for sigma calculations
-    def get_list_of_ranges(self, q):
+    # upper bound supposed to be ub = k + 1
+    def get_list_of_ranges(self, ub):
         list_of_ranges = [
             # all characters a_1, a_2, a_3, a_4 != 0
-            it.product(range(1, q), range(1, q), range(1, q), range(1, 2)),
+            it.product(range(1, ub), range(1, ub), range(1, ub), range(1, 2)),
 
             # a_1 == 0, a_2, a_3, a_4 != 0
-            it.product(range(1), range(1, q), range(1, q), range(1, 2)),
+            it.product(range(1), range(1, ub), range(1, ub), range(1, 2)),
             # a_2 == 0, a_1, a_3, a_4 != 0
-            it.product(range(1, q), range(1), range(1, q), range(1, 2)),
+            it.product(range(1, ub), range(1), range(1, ub), range(1, 2)),
             # a_3 == 0, a_1, a_2, a_4 != 0
-            it.product(range(1, q), range(1, q), range(1), range(1, 2)),
+            it.product(range(1, ub), range(1, ub), range(1), range(1, 2)),
             # a_4 == 0, a_1, a_2, a_3 != 0
-            it.product(range(1, q), range(1, q), range(1, 2), range(1)),
+            it.product(range(1, ub), range(1, ub), range(1, 2), range(1)),
 
             # a_1 == 0, a_2 == 0, a_3, a_4 != 0
-            it.product(range(1), range(1), range(1, q), range(1, 2)),
+            it.product(range(1), range(1), range(1, ub), range(1, 2)),
             # a_1 == 0, a_3 == 0, a_2, a_4 != 0
-            it.product(range(1), range(1, q), range(1), range(1, 2)),
+            it.product(range(1), range(1, ub), range(1), range(1, 2)),
             # a_1 == 0, a_4 == 0, a_3, a_2 != 0
-            it.product(range(1), range(1, q), range(1, 2), range(1)),
+            it.product(range(1), range(1, ub), range(1, 2), range(1)),
             # a_2 == 0, a_3 == 0, a_1, a_4 != 0
-            it.product(range(1, q), range(1), range(1), range(1, 2)),
+            it.product(range(1, ub), range(1), range(1), range(1, 2)),
             # a_2 == 0, a_4 == 0, a_1, a_3 != 0
-            it.product(range(1, q), range(1), range(1, 2), range(1)),
+            it.product(range(1, ub), range(1), range(1, 2), range(1)),
             # a_3 == 0, a_4 == 0, a_1, a_2 != 0
-            it.product(range(1, q), range(1, 2), range(1), range(1)),
+            it.product(range(1, ub), range(1, 2), range(1), range(1)),
             ]
-
-        list_of_ranges =
-            [
-            # all characters a_1, a_2, a_3, a_4 != 0
-            # 1, 1, 1, 1
-            it.product(range(1, 2), range(1, 2), range(1, 2), range(1, 2)),
-
-            # -1, -1, -1, 1
-            it.product(range(q - 1, q), range(q - 1, q), range(q - 1, q), \
-                                                                range(1, 2)),
-
-            # 1, -1, -1, 1
-            it.product(range(1, 2), range(q - 1, q), range(q - 1, q), \
-                                                                range(1, 2)),
-            # -1 , -1, 1, 1
-            it.product(range(q - 1, q), range(q - 1, q), range(1, 2), \
-                                                                range(1, 2)),
-            # -1, 1, -1, 1
-            it.product(range(q - 1, q), range(1, 2), range(q - 1, q), \
-                                                                range(1, 2)),
-            # 1, 1, -1, 1
-            it.product(range(1, 2), range(1, 2), range(q - 1, q), \
-                                                                range(1, 2)),
-            # 1, -1, 1, 1
-            it.product(range(1, 2), range(q - 1, q), range(1, 2), \
-                                                                range(1, 2)),
-            # -1, 1, 1, 1
-            it.product(range(q - 1, q), range(1, 2), range(1, 2), \
-                                                                range(1, 2)),
-            ]
-
         return list_of_ranges
 
 
-
-
 def main(arg):
-    if arg[1]:
+    try:
         limit = int(arg[1])
-    else:
+    except IndexError:
         limit = None
-    knots_with_large_sigma = search_for_large_signature_value(limit=limit)
+    search_for_large_signature_value(limit=limit)
+    knots_with_large_sigma = search_for_large_sigma_value(limit=limit)
     # search_for_null_signature_value(limit=limit)
 
-# searching for sigma > 5 + #(v_i != 0) over given knot schema
-def __search_for_large_signature_value(knot_formula, limit,
-                                        verbose, print_results):
-    # number of k_i (q_i) variables to substitute
-    k_size = extract_max(knot_formula) + 1
-    combinations = it.combinations_with_replacement(range(0, limit + 1), k_size)
-    P = Primes()
-    good_knots = []
-    # iterate over q-vector
-    for c in combinations:
-        q = list(c)
-        q[0] = P.unrank(q[0] + 1 + config.start_shift)
-        q[1] = P.next(q[0] * 4 + q[1])
-        q[2] = P.next(q[1] * 4 + q[2])
-        q[3] = P.next(q[2] * 4 + q[3])
-        cable = TorusCable(knot_formula=knot_formula, q_vector=q)
-        list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
-        print(cable.knot_description)
-        if cable.eval_cable_for_large_sigma(list_of_ranges, verbose=verbose,
-                                            print_results=print_results):
-            good_knots.append(cable)
-    return good_knots
-
-# searching for sigma > 5 + #(v_i != 0) over given knot schema
-def search_for_large_signature_value(knot_formula=None, limit=None,
-                                     verbose=None, print_results=None):
+def set_parameters(knot_formula, limit, verbose, print_results):
     if limit is None:
         limit = config.limit
     if knot_formula is None:
@@ -159,12 +101,19 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
         vebose = config.verbose
     if print_results is None:
         print_results = config.print_results
+    return knot_formula, limit, verbose, print_results
+
+
+
+# searching for sigma > 5 + #(v_i != 0) over given knot schema
+def search_for_large_sigma_value(knot_formula=None, limit=None,
+                                     verbose=None, print_results=None):
+
+    knot_formula, limit, verbose, print_results = \
+        set_parameters(knot_formula, limit, verbose, print_results)
 
     k_vector_size = extract_max(knot_formula) + 1
     limit = max(limit, k_vector_size)
-    if config.only_slice_candidates:
-        return __search_for_large_signature_value(knot_formula, limit, verbose,
-                                                    print_results)
 
     # number of k_i (q_i) variables to substitute
     combinations = it.combinations(range(1, limit + 1), k_vector_size)
@@ -173,23 +122,27 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
 
     # iterate over q-vector
     for c in combinations:
-        k = [(P.unrank(i + config.start_shift) - 1)/2 for i in c]
-        cable = TorusCable(knot_formula=knot_formula, k_vector=k)
-        list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
-        print(cable.knot_description)
+        q = [P.unrank(i + config.start_shift) for i in c]
+        if config.only_slice_candidates:
+            if not (q[3] > 4 * q[2] and
+                    q[2] > 4 * q[1] and
+                    q[1] > 4 * q[0]):
+                if verbose:
+                    print("Ratio-condition does not hold")
+                continue
+        cable = TorusCable(knot_formula=knot_formula, q_vector=q)
+        list_of_ranges = config.get_list_of_ranges(cable.k_vector[-1] + 1)
         if cable.eval_cable_for_large_sigma(list_of_ranges, verbose=verbose,
                                             print_results=print_results):
-            good_knots.append(cable)
+            good_knots.append(cable.knot_description)
     return good_knots
 
 # searching for signature == 0
-def search_for_null_signature_value(knot_formula=None, limit=None):
-    if limit is None:
-        limit = config.limit
-    if knot_formula is None:
-        knot_formula = config.knot_formula
-    print_results = config.print_results
-    verbose = config.verbose
+def search_for_null_signature_value(knot_formula=None, limit=None,
+                                     verbose=None, print_results=None):
+
+    knot_formula, limit, verbose, print_results = \
+        set_parameters(knot_formula, limit, verbose, print_results)
 
     k_vector_size = extract_max(knot_formula) + 1
     combinations = it.combinations_with_replacement(range(1, limit + 1),
@@ -210,10 +163,56 @@ def search_for_null_signature_value(knot_formula=None, limit=None):
                         str(all_comb) + "\n")
                 f_results.write(line)
 
+# searching for signature > 5 + #(v_i != 0) over given knot schema
+def search_for_large_signature_value(knot_formula=None, limit=None,
+                                     verbose=None, print_results=None):
+
+    knot_formula, limit, verbose, print_results = \
+        set_parameters(knot_formula, limit, verbose, print_results)
+
+    k_vector_size = extract_max(knot_formula) + 1
+    combinations = it.combinations(range(1, limit + 1), k_vector_size)
+    P = Primes()
+    good_knots = []
+
+    # iterate over q-vector
+    for c in combinations:
+        q = [P.unrank(i + config.start_shift) for i in c]
+        if config.only_slice_candidates:
+            if not (q[3] > 4 * q[2] and
+                    q[2] > 4 * q[1] and
+                    q[1] > 4 * q[0]):
+                if verbose:
+                    print("Ratio-condition does not hold")
+                continue
+        cable = TorusCable(knot_formula=knot_formula, q_vector=q)
+        list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
+        if cable.eval_cable_for_large_signature(list_of_ranges, verbose=verbose,
+                                                print_results=print_results):
+            good_knots.append(cable.knot_description)
+
+    return good_knots
+
+
+
+
+def get_shifted_combination(combination):
+    # for now applicable only for schama
+    # "[[k[0], k[1], k[2]], [k[3], k[4]],
+    # [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
+    # shift the combination so that the knot can be a candidate for slice
+    combination = [combination[0], 4 * combination[0] + combination[1],
+         4 * (4 * combination[0] + combination[1]) + combination[2],
+         4 * combination[0] + combination[3],
+         4 * (4 * combination[0] + combination[3]) + combination[4]]
+    return combination
+
+
 def extract_max(string):
     numbers = re.findall('\d+', string)
     numbers = map(int, numbers)
     return max(numbers)
+
 
 def is_trivial_combination(knot_sum):
     # for now is applicable only for schema that are sums of 4 cables

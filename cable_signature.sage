@@ -27,6 +27,17 @@ class TorusCable(object):
         self.__sigma_function = None
         self.__signature_as_function_of_theta = None
 
+
+    def get_untwisted_signature_function(self, j, q=None):
+        # return the signature function of the T_{2,2k+1} torus knot
+        k = abs(j)
+        q = 2 * k + 1
+        w = ([((2 * a + 1)/(2 * q), -1 * sgn(j)) for a in range(k)] +
+             [((2 * a + 1)/(2 * q), 1 * sgn(j))
+             for a in range(k + 1, 2 * k + 1)])
+        return SignatureFunction(values=w)
+
+
     def get_knot_descrption(self):
         description = ""
         for knot in self.knot_sum:
@@ -63,17 +74,20 @@ class TorusCable(object):
                 return signature_as_function_of_theta(*(len_a * [0]))
 
             if len_t != len_a:
-                msg = "This function takes exactly " + str(len_a) + \
-                      " arguments or no argument at all (" + str(len_t) + \
-                      " given)."
-                raise TypeError(msg)
+                if len(thetas[0]) == len_a:
+                        thetas = thetas[0]
+                else:
+                    msg = "This function takes exactly " + str(len_a) + \
+                          " arguments or no argument at all (" + str(len_t) + \
+                          " given)."
+                    raise TypeError(msg)
 
             sf = SignatureFunction()
 
             # for each cable knot in cable sum apply theta
             for i, knot in enumerate(self.knot_sum):
                 try:
-                    ssf = get_signature_summand_as_theta_function(*knot)
+                    ssf = get_summand_signature_as_theta_function(*knot)
                     sf += ssf(thetas[i])
                 # in case wrong theata value was given
                 except ValueError as e:
@@ -102,6 +116,94 @@ class TorusCable(object):
                 number_of_null_comb += 2^m
         return number_of_null_comb, list_of_good_vectors
 
+
+    def eval_cable_for_large_signature(self, list_of_ranges,
+                                        print_results=False,
+                                        verbose=False):
+        if self.__signature_as_function_of_theta is None:
+            self.__signature_as_function_of_theta= \
+                        self.__get_signature_as_function_of_theta()
+        if print_results:
+            print()
+            print(self.knot_description, end="\t\t\t")
+            print()
+        f = self.__signature_as_function_of_theta
+        if self.s__check_all_combinations_in_ranges(list_of_ranges,
+                                                print_results=print_results):
+            return True
+        return False
+
+    def s__check_all_combinations_in_ranges(self, list_of_ranges,
+                                           print_results=False):
+        all_combinations_pass = True
+        all_bad_vectors = []
+        number_of_all_good_v = 0
+        for i, range_product in enumerate(list_of_ranges):
+            good_v, bad_v  = self.s__check_combinations_in_range(range_product)
+            number_of_all_good_v += len(good_v)
+            all_bad_vectors = list(it.chain(all_bad_vectors, bad_v))
+            if bad_v:
+                all_combinations_pass = False
+            # if print_results:
+            #     print("good : bad:\t " + str(len(good_v)) +\
+            #           " : " + str(len(bad_v)))
+            #     if i in [0, 4,]:
+            #         print()
+            #     if bad_v:
+            #         print(bad_v)
+
+        if print_results:
+            print("good : bad:\t " + str(number_of_all_good_v) +\
+                  " : " + str(len(all_bad_vectors)))
+        return all_combinations_pass
+
+    def s__check_combinations_in_range(self, range_product):
+        large_sigma_for_all_combinations = True
+        bad_vectors = []
+        good_vectors = []
+        q_4 = self.q_vector[-1]
+        for vector in range_product:
+            a_1, a_2, a_3, a_4 = vector
+            if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
+                continue
+            if all(a in [1, q_4 - 1] for a in vector):
+                pass
+            else:
+                continue
+            if self.s__is_sigma_for_vector_class_big(vector):
+                good_vectors.append(vector)
+            else:
+                # print(vector)
+                bad_vectors.append(vector)
+        return good_vectors, bad_vectors
+
+    def s__is_sigma_for_vector_class_big(self, theta_vector):
+        [a_1, a_2, a_3, a_4] = theta_vector
+        q_4 = self.q_vector[-1]
+        k_4 = self.k_vector[-1]
+        max_sigma = 0
+
+        print(theta_vector, end="\t")
+
+        for shift in range(1, k_4 + 1):
+            shifted_theta = [(shift * a) % q_4 for a in
+                             [a_1, a_2, a_3, a_4]]
+            sf = self.__signature_as_function_of_theta(shifted_theta)
+            sigma_v = sf.is_big()
+            print(sigma_v, end=" ")
+            if abs(sigma_v) > abs(max_sigma):
+                max_sigma = sigma_v
+            if abs(sigma_v) > 5 + np.count_nonzero(shifted_theta):
+                print("\tok " + str(sigma_v))
+                return True
+        print("\tbad class " + str(max_sigma))
+        return False
+
+
+
+
+
+
     # searching for signature == 0
     def eval_cable_for_null_signature(self, print_results=False, verbose=False):
         # search for zero combinations
@@ -114,9 +216,10 @@ class TorusCable(object):
             print(self.knot_description)
             print("Zero cases: " + str(number_of_null_comb))
             print("All cases: " + str(number_of_all_comb))
-            print("Zero theta combinations: ")
-            for el in list_of_good_vectors:
-                print(el)
+            if list_of_good_vectors:
+                print("Zero theta combinations: ")
+                for el in list_of_good_vectors:
+                    print(el)
         if number_of_null_comb^2 >= number_of_all_comb:
             return number_of_null_comb, number_of_all_comb
         return None
@@ -124,8 +227,9 @@ class TorusCable(object):
     # check sigma for all v = s * [a_1, a_2, a_3, a_4] for s in [1, q_4 - 1]
     def __is_sigma_for_vector_class_big(self, theta_vector):
         [a_1, a_2, a_3, a_4] = theta_vector
-        q_4 = self.q_vector[3]
-        for shift in range(1, q_4):
+        q_4 = self.q_vector[-1]
+        k_4 = self.k_vector[-1]
+        for shift in range(1, k_4 + 1):
             shifted_theta = [(shift * a) % q_4 for a in
                              [a_1, a_2, a_3, a_4]]
             sigma_v = self.__sigma_function(shifted_theta)
@@ -147,9 +251,6 @@ class TorusCable(object):
         print("\n")
 
     def __tmp_get_max_sigma_for_vector_class(self, theta_vector):
-        # print("\n")
-        # print(self.knot_description)
-        # print("vector = " + str(theta_vector))
         max_sigma = (theta_vector, 0)
         [a_1, a_2, a_3, a_4] = theta_vector
         q_4 = self.q_vector[3]
@@ -159,12 +260,7 @@ class TorusCable(object):
             sigma = self.__sigma_function(shifted_theta)
             if abs(sigma) > abs(max_sigma[1]):
                 max_sigma = (shifted_theta, sigma)
-        assert max_sigma[1] == 0, knot_description
-            # print("\n" + self.knot_description + "\t" + str(max_sigma[0]) +\
-            #         "\t" + str(max_sigma[1]))
         return max_sigma[1]
-
-
 
     def is_sigma_for_vector_class_big(self, theta_vector):
         if self.__sigma_function is None:
@@ -175,9 +271,9 @@ class TorusCable(object):
         k_1, k_2, k_3, k_4 = [abs(k) for k in self.k_vector]
         q_4 = 2 * k_4 + 1
         ksi = 1/q_4
-        sigma_q_1 = get_untwisted_signature_function(k_1)
-        sigma_q_2 = get_untwisted_signature_function(k_2)
-        sigma_q_3 = get_untwisted_signature_function(k_3)
+        sigma_q_1 = self.get_untwisted_signature_function(k_1)
+        sigma_q_2 = self.get_untwisted_signature_function(k_2)
+        sigma_q_3 = self.get_untwisted_signature_function(k_3)
 
         def sigma_function(theta_vector, print_results=False):
             # "untwisted" part (Levine-Tristram signatures)
@@ -208,9 +304,9 @@ class TorusCable(object):
         a_1, a_2, a_3, a_4 = theta_vector
         q_4 = 2 * k_4 + 1
         ksi = 1/q_4
-        sigma_q_1 = get_untwisted_signature_function(k_1)
-        sigma_q_2 = get_untwisted_signature_function(k_2)
-        sigma_q_3 = get_untwisted_signature_function(k_3)
+        sigma_q_1 = self.get_untwisted_signature_function(k_1)
+        sigma_q_2 = self.get_untwisted_signature_function(k_2)
+        sigma_q_3 = self.get_untwisted_signature_function(k_3)
         print("\n\nLevine-Tristram signatures for the cable sum:  ")
         print(knot_description)
         print("and characters:\n" + str(theta_vector) + ",")
@@ -335,10 +431,8 @@ class TorusCable(object):
             self.__sigma_function = self.__get_sigma_function()
         return self.__sigma_function(theta_vector)
 
-
     # searching for sigma > 5 + #(v_i != 0)
     def __check_combinations_in_range(self, range_product):
-        large_sigma_for_all_combinations = True
         bad_vectors = []
         good_vectors = []
         q_4 = self.q_vector[-1]
@@ -346,19 +440,12 @@ class TorusCable(object):
             a_1, a_2, a_3, a_4 = vector
             if (a_1^2 - a_2^2 + a_3^2 - a_4^2) % q_4:
                 continue
-            if all(a in [1, q_4 - 1] for a in vector):
-                continue
+            # if all(a in [1, q_4 - 1] for a in vector):
+            #     continue
             if self.__is_sigma_for_vector_class_big(vector):
                 good_vectors.append(vector)
-                # pass
             else:
                 bad_vectors.append(vector)
-                # large_sigma_for_all_combinations = False
-                # if len(bad_vectors) > 8:
-                #     break
-        print(len(bad_vectors))
-        if a_1 and a_2 and a_3 and a_4:
-            assert len(bad_vectors) % 8 == 0
         return good_vectors, bad_vectors
 
     # searching for sigma > 5 + #(v_i != 0)
@@ -369,7 +456,7 @@ class TorusCable(object):
 
     # searching for sigma > 5 + #(v_i != 0)
     def __check_all_combinations_in_ranges(self, list_of_ranges,
-                                           print_results=True):
+                                           print_results=False):
         all_combinations_pass = True
         all_bad_vectors = []
         number_of_all_good_v = 0
@@ -379,8 +466,6 @@ class TorusCable(object):
             all_bad_vectors = list(it.chain(all_bad_vectors, bad_v))
             if bad_v:
                 all_combinations_pass = False
-            if len(all_bad_vectors) > 8:
-                break
             # if print_results:
             #     print("good : bad:\t " + str(len(good_v)) +\
             #           " : " + str(len(bad_v)))
@@ -392,11 +477,6 @@ class TorusCable(object):
         if print_results:
             print("good : bad:\t " + str(number_of_all_good_v) +\
                   " : " + str(len(all_bad_vectors)))
-            # if len(all_bad_vectors) < 8:
-            #     print()
-            #     print(all_bad_vectors)
-
-
         return all_combinations_pass
 
     # searching for sigma > 5 + #(v_i != 0)
@@ -405,11 +485,7 @@ class TorusCable(object):
         if self.__sigma_function is None:
             self.__sigma_function = self.__get_sigma_function()
         if print_results:
-            # print("\n\n")
-            # print(100 * "*")
-            # print("Searching for a large signature values for the cable sum: ")
             print(self.knot_description, end="\t\t\t")
-            # print()
         if self.__check_all_combinations_in_ranges(list_of_ranges,
                                                 print_results=print_results):
             return True
@@ -459,15 +535,15 @@ class SignatureFunction(object):
                 counter[mod_one(2 * jump_arg)] = jump
         return SignatureFunction(counter=counter)
 
-    def __lshift__(self, shift):
-        # A shift of the signature functions corresponds to the rotation.
-        return self.__rshift__(-shift)
-
     def __rshift__(self, shift):
+        # A shift of the signature functions corresponds to the rotation.
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
             new_data.append((mod_one(jump_arg + shift), jump))
         return SignatureFunction(values=new_data)
+
+    def __lshift__(self, shift):
+        return self.__rshift__(-shift)
 
     def __neg__(self):
         counter = collections.Counter()
@@ -498,15 +574,32 @@ class SignatureFunction(object):
         return result[:-2] + "."
 
     def __call__(self, arg):
-        # Compute the value of the signature function at the point arg.
-        # This requires summing all signature jumps that occur before arg.
+        # return the value of the signature function at the point arg, i.e.
+        # sum of all signature jumps that occur before arg
         arg = mod_one(arg)
         cnt = self.cnt_signature_jumps
         before_arg = [jump for jump_arg, jump in cnt.items() if jump_arg < arg]
         return 2 * sum(before_arg) + cnt[arg]
 
+
+    def is_big(self):
+        max = 0
+        items = self.cnt_signature_jumps.items()
+        for arg, _ in items:
+            current = sum([jump for jump_arg, jump in items if jump_arg <= arg])
+            if abs(current) > abs(max):
+                max = current
+            if abs(max) > 9:
+                return max
+        return max
+
+
+
+
+
 def mod_one(n):
     return n - floor(n)
+
 
 def get_untwisted_signature_function(j):
     # return the signature function of the T_{2,2k+1} torus knot
@@ -517,15 +610,16 @@ def get_untwisted_signature_function(j):
     return SignatureFunction(values=w)
 
 
-def get_signature_summand_as_theta_function(*arg):
-    def get_signture_function(theta):
+def get_summand_signature_as_theta_function(*arg):
+    def get_summand_signture_function(theta):
         # TBD: another formula (for t^2) description
-
         k_n = abs(arg[-1])
         if theta > k_n:
             msg = "k for the pattern in the cable is " + str(arg[-1]) + \
                   ". Parameter theta should not be larger than abs(k)."
-            raise ValueError(msg)
+            pass
+            # print(msg)
+            # raise ValueError(msg)
 
         # twisted part
         cable_signature = get_blanchfield_for_pattern(arg[-1], theta)
@@ -546,8 +640,8 @@ def get_signature_summand_as_theta_function(*arg):
             test2 = -c + b
             assert test == test
         return cable_signature
-    get_signture_function.__doc__ = get_signture_function_docsting
-    return get_signture_function
+    get_summand_signture_function.__doc__ = get_summand_signture_function_docsting
+    return get_summand_signture_function
 
 
 def get_blanchfield_for_pattern(k_n, theta):
@@ -580,15 +674,17 @@ def get_blanchfield_for_pattern(k_n, theta):
     return SignatureFunction(values=results)
 
 
-def get_signature_summand_as_theta_function(*arg):
-    def get_signture_function(theta):
+def get_summand_signature_as_theta_function(*arg):
+    def get_summand_signture_function(theta):
         # TBD: another formula (for t^2) description
 
         k_n = abs(arg[-1])
         if theta > k_n:
             msg = "k for the pattern in the cable is " + str(arg[-1]) + \
                   ". Parameter theta should not be larger than abs(k)."
-            raise ValueError(msg)
+            pass
+            # print(msg)
+            # raise ValueError(msg)
 
         # twisted part
         cable_signature = get_blanchfield_for_pattern(arg[-1], theta)
@@ -609,8 +705,8 @@ def get_signature_summand_as_theta_function(*arg):
             test2 = -c + b
             assert test == test
         return cable_signature
-    get_signture_function.__doc__ = get_signture_function_docsting
-    return get_signture_function
+    get_summand_signture_function.__doc__ = get_summand_signture_function_docsting
+    return get_summand_signture_function
 
 
 def get_untwisted_signature_function(j):
@@ -733,12 +829,12 @@ SignatureFunction.__doc__ = \
     signature functions as defined on the interval [0,1).
     """
 
-get_signture_function_docsting = \
+get_summand_signture_function_docsting = \
     """
     This function returns SignatureFunction for previously defined single
     cable T_(2, q) and a theta given as an argument.
     The cable was defined by calling function
-    get_signature_summand_as_theta_function(*arg)
+    get_summand_signature_as_theta_function(*arg)
     with the cable description as an argument.
     It is an implementaion of the formula:
         Bl_theta(K'_(2, d)) =
@@ -785,7 +881,7 @@ get_blanchfield_for_pattern.__doc__ = \
         (https://arxiv.org/pdf/1809.08791.pdf)
     """
 
-get_signature_summand_as_theta_function.__doc__ = \
+get_summand_signature_as_theta_function.__doc__ = \
     """
     Argument:
         n integers that encode a single cable, i.e.
