@@ -7,11 +7,11 @@ import sys
 
 import itertools as it
 import re
-#
+
 # if not os.path.isfile('cable_signature.py'):
 #     os.system('sage --preparse cable_signature.sage')
 #     os.system('mv cable_signature.sage.py cable_signature.py')
-# from cable_signature import SignatureFunction, TorusCable
+# from cable_signature import SignatureFunction, TorusCable, SIGNATURE, SIGMA
 
 
 class Config(object):
@@ -132,7 +132,8 @@ def search_for_large_sigma_value(knot_formula=None, limit=None,
                 continue
         cable = TorusCable(knot_formula=knot_formula, q_vector=q)
         list_of_ranges = config.get_list_of_ranges(cable.k_vector[-1] + 1)
-        if cable.eval_cable_for_large_sigma(list_of_ranges, verbose=verbose,
+        if cable.eval_cable_for_large_values(list_of_ranges, SIGMA,
+                                            verbose=verbose,
                                             print_results=print_results):
             good_knots.append(cable.knot_description)
     return good_knots
@@ -187,7 +188,8 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
                 continue
         cable = TorusCable(knot_formula=knot_formula, q_vector=q)
         list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
-        if cable.eval_cable_for_large_signature(list_of_ranges, verbose=verbose,
+        if cable.eval_cable_for_large_values(list_of_ranges, SIGNATURE,
+                                                verbose=verbose,
                                                 print_results=print_results):
             good_knots.append(cable.knot_description)
 
