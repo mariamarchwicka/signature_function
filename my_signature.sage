@@ -34,14 +34,14 @@ class Config(object):
         #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
         self.limit = 3
 
-        # in search for large sigma, for 1. checked knot q_1 = 3 + start_shift
+        # in rch for large sigma, for 1. checked knot q_1 = 3 + start_shift
         self.start_shift =  0
 
         self.verbose = True
         self.verbose = False
 
         self.print_results = True
-        # self.print_results = False
+        self.print_results = False
 
         self.print_calculations_for_large_sigma = True
         self.print_calculations_for_large_sigma = False
@@ -104,7 +104,6 @@ def set_parameters(knot_formula, limit, verbose, print_results):
     return knot_formula, limit, verbose, print_results
 
 
-
 # searching for sigma > 5 + #(v_i != 0) over given knot schema
 def search_for_large_sigma_value(knot_formula=None, limit=None,
                                      verbose=None, print_results=None):
@@ -131,12 +130,17 @@ def search_for_large_sigma_value(knot_formula=None, limit=None,
                     print("Ratio-condition does not hold")
                 continue
         cable = TorusCable(knot_formula=knot_formula, q_vector=q)
-        list_of_ranges = config.get_list_of_ranges(cable.k_vector[-1] + 1)
+        list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
         if cable.eval_cable_for_large_values(list_of_ranges, SIGMA,
                                             verbose=verbose,
                                             print_results=print_results):
             good_knots.append(cable.knot_description)
     return good_knots
+
+
+
+
+
 
 # searching for signature == 0
 def search_for_null_signature_value(knot_formula=None, limit=None,
@@ -156,13 +160,28 @@ def search_for_null_signature_value(knot_formula=None, limit=None,
             if is_trivial_combination(cable.knot_sum):
                 print(cable.knot_sum)
                 continue
+
             result = cable.eval_cable_for_null_signature(verbose=verbose,
                                                     print_results=print_results)
+
             if result is not None:
                 null_comb, all_comb = result
                 line = (str(k) + ", " + str(null_comb) + ", " +
                         str(all_comb) + "\n")
                 f_results.write(line)
+
+def check_one_cable(cable, sigma_or_sign=None,
+                    verbose=None, print_results=None):
+    if sigma_or_sign is None:
+        sigma_or_sign = SIGNATURE
+    if verbose is None:
+        verbos = config.verbose
+    if print_results is None:
+        print_results = config.print_results
+    list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
+    return cable.eval_cable_for_large_values(list_of_ranges, sigma_or_sign,
+                                        verbose=verbose,
+                                        print_results=print_results)
 
 # searching for signature > 5 + #(v_i != 0) over given knot schema
 def search_for_large_signature_value(knot_formula=None, limit=None,
@@ -211,7 +230,7 @@ def get_shifted_combination(combination):
 
 
 def extract_max(string):
-    numbers = re.findall('\d+', string)
+    numbers = re.findall(r'\d+', string)
     numbers = map(int, numbers)
     return max(numbers)
 
