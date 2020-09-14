@@ -14,11 +14,16 @@ class SignatureFunction(object):
     def __init__(self, values=None, counter=None):
         # set values of signature jumps
         if counter is None:
+            counter = collections.Counter()
+
             if values is None:
                 values = []
-            assert all(x < 1 for x, y in values),\
-                "Signature function is defined on the interval [0, 1)."
-            counter = collections.Counter(dict(values))
+
+            msg = "Signature function is defined on the interval [0, 1)."
+            assert all(k < 1 for k, v in values), msg
+
+            for k, v in values:
+                counter[k] += v
         self.cnt_signature_jumps = counter
 
     def sum_of_absolute_values(self):
@@ -31,15 +36,16 @@ class SignatureFunction(object):
         # to read values for t^2
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
-            new_data.append((jump_arg/2, jump))
-            new_data.append((1/2 + jump_arg/2, jump))
+            if jump != 0:
+                new_data.append((jump_arg/2, jump))
+                new_data.append((1/2 + jump_arg/2, jump))
         return SignatureFunction(values=new_data)
 
     def square_root(self):
         # to read values for t^(1/2)
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
-            if jump_arg < 1/2:
+            if jump_arg < 1/2 and jump != 0:
                 new_data.append((2 * jump_arg, jump))
         return SignatureFunction(values=new_data)
 
@@ -47,16 +53,22 @@ class SignatureFunction(object):
         # to read values for t^(1/2)
         counter = collections.Counter()
         for jump_arg, jump in self.cnt_signature_jumps.items():
-            if jump_arg >= 1/2:
+            if jump_arg >= 1/2 and jump != 0:
                 counter[mod_one(2 * jump_arg)] = jump
         return SignatureFunction(counter=counter)
 
     def is_big(self):
         max = 0
-        items = self.cnt_signature_jumps.items()
-        for arg, _ in items:
-            # current = sum([jump for jump_arg, jump in items if jump_arg <= arg])
-            current = self(arg)
+        current = 0
+        items = sorted(self.cnt_signature_jumps.items())
+        for arg, jump in items:
+            current += 2 * jump
+            msg = "current = " + str(current) + ", jump = " + str(jump)
+            msg += "\n" + str(self(arg))
+            result = [jump for jump_arg, jump in self.cnt_signature_jumps.items() if jump_arg < mod_one(arg)]
+            msg += "\nresult = " + str(sum(result))
+            msg += "\narg = " + str(arg)
+            assert current == self(arg) + jump, msg
             if abs(current) > abs(max):
                 max = current
                 # if abs(max) > 9:
@@ -68,7 +80,12 @@ class SignatureFunction(object):
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
             new_data.append((mod_one(jump_arg + shift), jump))
-        return SignatureFunction(values=new_data)
+        sf = SignatureFunction(values=new_data)
+        counter = collections.Counter({mod_one(k + shift) : v \
+                                for k,v in self.cnt_signature_jumps.items()})
+        assert SignatureFunction(counter=counter) == \
+                            SignatureFunction(values=new_data)
+        return SignatureFunction(counter=counter)
 
     def __lshift__(self, shift):
         return self.__rshift__(-shift)
@@ -93,7 +110,8 @@ class SignatureFunction(object):
 
     def __str__(self):
         result = ''.join([str(jump_arg) + ": " + str(jump) + "\n"
-                for jump_arg, jump in sorted(self.cnt_signature_jumps.items())])
+                for jump_arg, jump in sorted(self.cnt_signature_jumps.items())
+                if jump != 0])
         return result
 
     def __repr__(self):
@@ -104,10 +122,9 @@ class SignatureFunction(object):
     def __call__(self, arg):
         # return the value of the signature function at the point arg, i.e.
         # sum of all signature jumps that occur before arg
-        arg = mod_one(arg)
-        cnt = self.cnt_signature_jumps
-        before_arg = [jump for jump_arg, jump in cnt.items() if jump_arg < arg]
-        return 2 * sum(before_arg) + cnt[arg]
+        items = self.cnt_signature_jumps.items()
+        result = [jump for jump_arg, jump in items if jump_arg < mod_one(arg)]
+        return 2 * sum(result) + self.cnt_signature_jumps[arg]
 
     def total_sign_jump(self):
         # Total signature jump is the sum of all jumps.
@@ -267,6 +284,65 @@ class TorusCable(object):
                                         signature_as_function_of_theta_docstring
         return signature_as_function_of_theta
 
+
+    @staticmethod
+    def get_blanchfield_for_pattern(k_n, theta):
+        if theta == 0:
+            sf = TorusCable.get_untwisted_signature_function(k_n)
+            return sf.square_root() + sf.minus_square_root()
+
+        results = []
+        k = abs(k_n)
+        ksi = 1/(2 * k + 1)
+
+        counter = collections.Counter()
+        # print("lambda_odd, i.e. (theta + e) % 2 != 0")
+        for e in range(1, k + 1):
+            if (theta + e) % 2 != 0:
+                counter[e * ksi] = 1 * sgn(k_n)
+                counter[1 - e * ksi] = -1 * sgn(k_n)
+
+                results.append((e * ksi, 1 * sgn(k_n)))
+                results.append((1 - e * ksi, -1 * sgn(k_n)))
+
+        # for example for k = 9 (q = 19) from this part we get
+        # for even theta
+        # 2/19: 1
+        # 4/19: 1
+        # 6/19: 1
+        # 8/19: 1
+        # 11/19: -1
+        # 13/19: -1
+        # 15/19: -1
+        # 17/19: -1
+        #
+        # for odd theta
+        # 1/19: 1
+        # 3/19: 1
+        # 5/19: 1
+        # 7/19: 1
+        # 9/19: 1
+        # 10/19: -1
+        # 12/19: -1
+        # 14/19: -1
+        # 16/19: -1
+        # 18/19: -1
+
+        # print("lambda_even")
+        # print("normal")
+        for e in range(1, theta):
+            if (theta + e) % 2 == 0:
+                results.append((e * ksi, 1 * sgn(k_n)))
+                results.append((1 - e * ksi, -1 * sgn(k_n)))
+        # print("reversed")
+        for e in range(theta + 1, k + 1):
+            if (theta + e) % 2 == 0:
+                results.append((e * ksi, -1 * sgn(k_n)))
+                results.append((1 - e * ksi, 1 * sgn(k_n)))
+
+        return SignatureFunction(values=results)
+
+
     @staticmethod
     def get_untwisted_signature_function(j):
         # return the signature function of the T_{2,2k+1} torus knot
@@ -276,6 +352,7 @@ class TorusCable(object):
              [((2 * a + 1)/(2 * q), 1 * sgn(j))
              for a in range(k + 1, 2 * k + 1)])
         return SignatureFunction(values=w)
+
 
     def get_knot_descrption(self):
         description = ""
@@ -327,56 +404,6 @@ class TorusCable(object):
             get_summand_signture_function_docsting
         return get_summand_signture_function
 
-    def get_blanchfield_for_pattern(self, k_n, theta):
-        if theta == 0:
-            sf = TorusCable.get_untwisted_signature_function(k_n)
-            return sf.square_root() + sf.minus_square_root()
-
-        results = []
-        k = abs(k_n)
-        ksi = 1/(2 * k + 1)
-
-        # print("lambda_odd, i.e. (theta + e) % 2 != 0")
-        for e in range(1, k + 1):
-            if (theta + e) % 2 != 0:
-                results.append((e * ksi, 1 * sgn(k_n)))
-                results.append((1 - e * ksi, -1 * sgn(k_n)))
-        # for example for k = 9 (q = 19) from this part we get
-        # for even theta
-        # 2/19: 1
-        # 4/19: 1
-        # 6/19: 1
-        # 8/19: 1
-        # 11/19: -1
-        # 13/19: -1
-        # 15/19: -1
-        # 17/19: -1
-        #
-        # for odd theta
-        # 1/19: 1
-        # 3/19: 1
-        # 5/19: 1
-        # 7/19: 1
-        # 9/19: 1
-        # 10/19: -1
-        # 12/19: -1
-        # 14/19: -1
-        # 16/19: -1
-        # 18/19: -1
-
-        # print("lambda_even")
-        # print("normal")
-        for e in range(1, theta):
-            if (theta + e) % 2 == 0:
-                results.append((e * ksi, 1 * sgn(k_n)))
-                results.append((1 - e * ksi, -1 * sgn(k_n)))
-        # print("reversed")
-        for e in range(theta + 1, k + 1):
-            if (theta + e) % 2 == 0:
-                results.append((e * ksi, -1 * sgn(k_n)))
-                results.append((1 - e * ksi, 1 * sgn(k_n)))
-
-        return SignatureFunction(values=results)
 
     def get_number_of_combinations_of_theta(self):
         number_of_combinations = 1

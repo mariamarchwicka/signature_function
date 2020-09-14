@@ -23,6 +23,10 @@ class Config(object):
         self.knot_formula = "[[k[0], k[1], k[3]], [-k[1], -k[3]], \
                              [k[2], k[3]], [-k[0], -k[2], -k[3]]]"
 
+        # self.knot_formula = "[[k[3]], [-k[3]], \
+        #                      [k[3]], [-k[3]] ]"
+
+
         # self.knot_formula = "[[k[3], k[2], k[0]], [-k[2], -k[0]], \
         #                      [k[1], k[0]], [-k[3], -k[1], -k[0]]]"
 
@@ -198,6 +202,7 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
     # iterate over q-vector
     for c in combinations:
         q = [P.unrank(i + config.start_shift) for i in c]
+        q[3] = 79
         if config.only_slice_candidates:
             if not (q[3] > 4 * q[2] and
                     q[2] > 4 * q[1] and
