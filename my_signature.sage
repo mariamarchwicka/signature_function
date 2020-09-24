@@ -20,8 +20,16 @@ class Config(object):
 
         # knot_formula is a schema for knots which signature function
         # will be calculated
-        self.knot_formula = "[[k[0], k[1], k[3]], [-k[1], -k[3]], \
-                             [k[2], k[3]], [-k[0], -k[2], -k[3]]]"
+        self.knot_formula = "[[k[0], k[1], k[3]], " + \
+                             "[-k[1], -k[3]], " + \
+                             "[k[2], k[3]], " + \
+                             "[-k[0], -k[2], -k[3]]]"
+
+
+        # self.knot_formula = "[[k[0], k[1], k[4]], [-k[1], -k[3]], \
+        #                      [k[2], k[3]], [-k[0], -k[2], -k[4]]]"
+        #
+        #
 
         # self.knot_formula = "[[k[3]], [-k[3]], \
         #                      [k[3]], [-k[3]] ]"
@@ -42,10 +50,10 @@ class Config(object):
         self.start_shift =  0
 
         self.verbose = True
-        self.verbose = False
+        # self.verbose = False
 
         self.print_results = True
-        self.print_results = False
+        # self.print_results = False
 
         self.print_calculations_for_large_sigma = True
         self.print_calculations_for_large_sigma = False
@@ -102,7 +110,7 @@ def set_parameters(knot_formula, limit, verbose, print_results):
     if knot_formula is None:
         knot_formula = config.knot_formula
     if verbose is None:
-        vebose = config.verbose
+        verbose = config.verbose
     if print_results is None:
         print_results = config.print_results
     return knot_formula, limit, verbose, print_results
@@ -127,9 +135,8 @@ def search_for_large_sigma_value(knot_formula=None, limit=None,
     for c in combinations:
         q = [P.unrank(i + config.start_shift) for i in c]
         if config.only_slice_candidates:
-            if not (q[3] > 4 * q[2] and
-                    q[2] > 4 * q[1] and
-                    q[1] > 4 * q[0]):
+            ratio = q[3] > 4 * q[2] and q[2] > 4 * q[1] and q[1] > 4 * q[0]
+            if not ratio:
                 if verbose:
                     print("Ratio-condition does not hold")
                 continue
@@ -143,9 +150,6 @@ def search_for_large_sigma_value(knot_formula=None, limit=None,
 
 
 
-
-
-
 # searching for signature == 0
 def search_for_null_signature_value(knot_formula=None, limit=None,
                                      verbose=None, print_results=None):
@@ -154,6 +158,8 @@ def search_for_null_signature_value(knot_formula=None, limit=None,
         set_parameters(knot_formula, limit, verbose, print_results)
 
     k_vector_size = extract_max(knot_formula) + 1
+    limit = max(limit, k_vector_size)
+
     combinations = it.combinations_with_replacement(range(1, limit + 1),
                                                     k_vector_size)
     with open(config.f_results, 'w') as f_results:
@@ -202,11 +208,9 @@ def search_for_large_signature_value(knot_formula=None, limit=None,
     # iterate over q-vector
     for c in combinations:
         q = [P.unrank(i + config.start_shift) for i in c]
-        q[3] = 79
         if config.only_slice_candidates:
-            if not (q[3] > 4 * q[2] and
-                    q[2] > 4 * q[1] and
-                    q[1] > 4 * q[0]):
+            ratio = q[3] > 4 * q[2] and q[2] > 4 * q[1] and q[1] > 4 * q[0]
+            if not ratio:
                 if verbose:
                     print("Ratio-condition does not hold")
                 continue

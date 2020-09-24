@@ -7,6 +7,8 @@ from typing import Iterable
 SIGNATURE = 0
 SIGMA = 1
 
+# 9.11 (9.8)
+# 9.15 (9.9)
 
 
 class SignatureFunction(object):
@@ -21,40 +23,57 @@ class SignatureFunction(object):
 
             msg = "Signature function is defined on the interval [0, 1)."
             assert all(k < 1 for k, v in values), msg
-
+            counter2 = collections.Counter({ k : v for k, v in values})
             for k, v in values:
                 counter[k] += v
+            assert counter2 == counter
         self.cnt_signature_jumps = counter
+        self.tikz_plot("bum.tex")
 
-    def sum_of_absolute_values(self):
-        return sum([abs(i) for i in self.cnt_signature_jumps.values()])
 
     def is_zero_everywhere(self):
         return not any(self.cnt_signature_jumps.values())
 
     def double_cover(self):
         # to read values for t^2
+        items = self.cnt_signature_jumps.items()
+        counter = collections.Counter({ (1 + k) / 2 : v for k, v in items})
+        counter.update(collections.Counter({ k / 2 : v for k, v in items}))
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
             if jump != 0:
                 new_data.append((jump_arg/2, jump))
                 new_data.append((1/2 + jump_arg/2, jump))
+        assert SignatureFunction(values=new_data) == SignatureFunction(counter=counter)
         return SignatureFunction(values=new_data)
 
     def square_root(self):
         # to read values for t^(1/2)
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
-            if jump_arg < 1/2 and jump != 0:
+            if jump_arg < 1/2:
                 new_data.append((2 * jump_arg, jump))
+
+        counter = collections.Counter()
+        for jump_arg, jump in self.cnt_signature_jumps.items():
+            if jump_arg < 1/2:
+                counter[2 * jump_arg] = jump
+        assert SignatureFunction(values=new_data) == SignatureFunction(counter=counter)
+
+
         return SignatureFunction(values=new_data)
 
     def minus_square_root(self):
         # to read values for t^(1/2)
+        items = self.cnt_signature_jumps.items()
+
         counter = collections.Counter()
         for jump_arg, jump in self.cnt_signature_jumps.items():
-            if jump_arg >= 1/2 and jump != 0:
+            if jump_arg >= 1/2:
                 counter[mod_one(2 * jump_arg)] = jump
+        counter2 = collections.Counter({ mod_one(2 * k) : v for k, v in items if k >= 1/2 })
+        assert counter2 ==  counter
+
         return SignatureFunction(counter=counter)
 
     def is_big(self):
@@ -63,12 +82,7 @@ class SignatureFunction(object):
         items = sorted(self.cnt_signature_jumps.items())
         for arg, jump in items:
             current += 2 * jump
-            msg = "current = " + str(current) + ", jump = " + str(jump)
-            msg += "\n" + str(self(arg))
-            result = [jump for jump_arg, jump in self.cnt_signature_jumps.items() if jump_arg < mod_one(arg)]
-            msg += "\nresult = " + str(sum(result))
-            msg += "\narg = " + str(arg)
-            assert current == self(arg) + jump, msg
+            assert current == self(arg) + jump
             if abs(current) > abs(max):
                 max = current
                 # if abs(max) > 9:
@@ -81,6 +95,7 @@ class SignatureFunction(object):
         for jump_arg, jump in self.cnt_signature_jumps.items():
             new_data.append((mod_one(jump_arg + shift), jump))
         sf = SignatureFunction(values=new_data)
+
         counter = collections.Counter({mod_one(k + shift) : v \
                                 for k,v in self.cnt_signature_jumps.items()})
         assert SignatureFunction(counter=counter) == \
@@ -128,18 +143,29 @@ class SignatureFunction(object):
 
     def total_sign_jump(self):
         # Total signature jump is the sum of all jumps.
+        result =  sum([j[1] for j in self.to_list()])
+        assert result == sum(v for _, v in self.cnt_signature_jumps.items())
         return sum([j[1] for j in self.to_list()])
 
     def to_list(self):
         # Return signature jumps formated as a list
+        assert sorted(self.cnt_signature_jumps.items(), key = lambda x: x[0]) == \
+                sorted(self.cnt_signature_jumps.items())
         return sorted(self.cnt_signature_jumps.items(), key = lambda x: x[0])
 
     def step_function_data(self):
         # Transform the signature jump data to a format understandable
         # by the plot function.
         l = self.to_list()
+        assert l == sorted(self.cnt_signature_jumps.items())
         vals = ([(d[0], sum(2 * j[1] for j in l[:l.index(d)+1])) for d in l] +
               [(0,self.cnt_signature_jumps[0]), (1,self.total_sign_jump())])
+        print("step_function_data")
+        print(vals)
+        counter = copy(self.cnt_signature_jumps)
+        counter[0] = self.cnt_signature_jumps[0]
+        counter[1] = self.total_sign_jump()
+        print(sorted(counter.items()))
         return vals
 
     def plot(self):
@@ -147,7 +173,7 @@ class SignatureFunction(object):
         plot_step_function(self.step_function_data())
 
     def tikz_plot(self, file_name):
-        # Draw the graph of the signature and transform it into            TiKz.
+        # Draw the graph of the signature and transform it into TiKz.
         # header of the LaTeX file
 
         with open(file_name, "w") as output_file:
@@ -156,10 +182,12 @@ class SignatureFunction(object):
             output_file.write("\\begin{document}\n")
             output_file.write("\\begin{tikzpicture}\n")
             data = sorted(self.step_function_data())
+            print("data")
+            print(data)
             output_file.write("  \\datavisualization[scientific axes,visualize as smooth line,\n")
             output_file.write("  x axis={ticks={none,major={at={")
             output_file.write(", " + str(N(data[0][0],digits=4)) + " as \\(" + str(data[0][0]) + "\\)")
-            for jump_arg,jump in data:
+            for jump_arg, jump in data:
                 output_file.write(", " + str(N(jump_arg,digits=4)) + " as \\(" + str(jump_arg) + "\\)")
                 output_file.write("}}}}\n")
                 output_file.write("  ]\n")
@@ -191,9 +219,28 @@ class TorusCable(object):
         self.q_vector = q_vector
         k = k_vector
         self.knot_sum = eval(knot_formula)
-        self.knot_description = self.get_knot_descrption()
+        self.knot_description = self.set_knot_descrption()
         self.__sigma_function = None
+        # TBD property function
         self.signature_as_function_of_theta = None
+        self.signature_as_function_of_theta = self.get_signature_as_function_of_theta()
+        # self.signature_as_function_of_theta = None
+
+    def update(self, other):
+        # TBD knot_formula etc.
+        number_of_summands = len(self.knot_sum)
+        self.knot_description += " # " + other.knot_description
+        self.knot_formula = self.knot_formula[:-1] + ",\n" + \
+                            other.knot_formula[1:]
+        print(self.knot_sum)
+        self.knot_sum += other.knot_sum
+        # self.signature_as_function_of_theta = \
+        #             self.get_signature_as_function_of_theta() + \
+        #             other.get_signature_as_function_of_theta()
+        print(self.knot_description)
+        print(self.knot_formula)
+        print(self.knot_sum)
+
 
     def __get_sigma_function(self):
         k_1, k_2, k_3, k_4 = [abs(k) for k in self.k_vector]
@@ -273,12 +320,18 @@ class TorusCable(object):
                 print("one vector " + str(thetas))
                 print("max sf " + str(sf.is_big()))
                 print()
-                assert untwisted_part.is_zero_everywhere()
+                # assert untwisted_part.is_zero_everywhere()
 
             if verbose:
                 print()
                 print(str(thetas))
                 print(sf)
+            msg = "tota signature jump = " + str(sf.total_sign_jump())
+            msg += "\nfunction\n" + str(sf)
+            assert sf.total_sign_jump() == 0, msg
+
+
+
             return sf
         signature_as_function_of_theta.__doc__ =\
                                         signature_as_function_of_theta_docstring
@@ -354,7 +407,7 @@ class TorusCable(object):
         return SignatureFunction(values=w)
 
 
-    def get_knot_descrption(self):
+    def set_knot_descrption(self):
         description = ""
         for knot in self.knot_sum:
             if knot[0] < 0:
@@ -728,12 +781,12 @@ TorusCable.get_number_of_combinations_of_theta.__doc__ = \
         and q_j is the last q parameter for the component (a single cable)
     """
 
-TorusCable.get_knot_descrption.__doc__ = \
+TorusCable.set_knot_descrption.__doc__ = \
     """
     Arguments:
         arbitrary number of lists of numbers, each list encodes a single cable.
     Examples:
-        sage: get_knot_descrption([1, 3], [2], [-1, -2], [-3])
+        sage: set_knot_descrption([1, 3], [2], [-1, -2], [-3])
         'T(2, 3; 2, 7) # T(2, 5) # -T(2, 3; 2, 5) # -T(2, 7)'
     """
 
