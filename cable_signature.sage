@@ -1,8 +1,8 @@
 #!/usr/bin/python
-import collections
 import numpy as np
 import itertools as it
 from typing import Iterable
+from collections import Counter
 
 SIGNATURE = 0
 SIGMA = 1
@@ -16,7 +16,7 @@ class SignatureFunction(object):
     def __init__(self, values=None, counter=None):
         # builed counter based on values of signature jumps
         if counter is None:
-            counter = collections.Counter()
+            counter = Counter()
 
             if values is None:
                 values = []
@@ -36,8 +36,8 @@ class SignatureFunction(object):
     def double_cover(self):
         # to read values for t^2
         items = self.cnt_signature_jumps.items()
-        counter = collections.Counter({ (1 + k) / 2 : v for k, v in items})
-        counter.update(collections.Counter({ k / 2 : v for k, v in items}))
+        counter = Counter({ (1 + k) / 2 : v for k, v in items})
+        counter.update(Counter({ k / 2 : v for k, v in items}))
         new_data = []
         for jump_arg, jump in self.cnt_signature_jumps.items():
             new_data.append((jump_arg/2, jump))
@@ -52,7 +52,7 @@ class SignatureFunction(object):
             if jump_arg < 1/2:
                 new_data.append((2 * jump_arg, jump))
 
-        counter = collections.Counter()
+        counter = Counter()
         for jump_arg, jump in self.cnt_signature_jumps.items():
             if jump_arg < 1/2:
                 counter[2 * jump_arg] = jump
@@ -64,11 +64,11 @@ class SignatureFunction(object):
         # to read values for t^(1/2)
         items = self.cnt_signature_jumps.items()
 
-        counter = collections.Counter()
+        counter = Counter()
         for jump_arg, jump in self.cnt_signature_jumps.items():
             if jump_arg >= 1/2:
                 counter[mod_one(2 * jump_arg)] = jump
-        counter2 = collections.Counter({ mod_one(2 * k) : v for k, v in items if k >= 1/2 })
+        counter2 = Counter({mod_one(2 * k) : v for k, v in items if k >= 1/2 })
         assert counter2 ==  counter
 
         return SignatureFunction(counter=counter)
@@ -93,7 +93,7 @@ class SignatureFunction(object):
             new_data.append((mod_one(jump_arg + shift), jump))
         sf = SignatureFunction(values=new_data)
 
-        counter = collections.Counter({mod_one(k + shift) : v \
+        counter = Counter({mod_one(k + shift) : v \
                                 for k,v in self.cnt_signature_jumps.items()})
         assert SignatureFunction(counter=counter) == \
                             SignatureFunction(values=new_data)
@@ -103,7 +103,7 @@ class SignatureFunction(object):
         return self.__rshift__(-shift)
 
     def __neg__(self):
-        counter = collections.Counter()
+        counter = Counter()
         counter.subtract(self.cnt_signature_jumps)
         return SignatureFunction(counter=counter)
 
@@ -113,6 +113,11 @@ class SignatureFunction(object):
         return SignatureFunction(counter=counter)
 
     def __eq__(self, other):
+        self_cnt = Counter({ k : v for k, v in self.cnt_signature_jumps.items()
+                            if v != 0})
+        other_cnt = Counter({ k : v for k, v in other.cnt_signature_jumps.items()
+                            if v != 0})
+
         return self.cnt_signature_jumps == other.cnt_signature_jumps
 
     def __sub__(self, other):
@@ -173,28 +178,32 @@ class SignatureFunction(object):
         # Draw the graph of the signature and transform it into TiKz.
         # header of the LaTeX file
 
-        with open(file_name, "w") as output_file:
-            output_file.write("\\documentclass[tikz]{standalone}\n")
-            output_file.write("\\usetikzlibrary{datavisualization,datavisualization.formats.functions}\n")
-            output_file.write("\\begin{document}\n")
-            output_file.write("\\begin{tikzpicture}\n")
+        with open(file_name, "w") as f:
+            f.write("\\documentclass[tikz]{standalone}\n")
+            f.write("\\usetikzlibrary{datavisualization, " +
+                        "datavisualization.formats.functions}\n")
+            f.write("\\begin{document}\n")
+            f.write("\\begin{tikzpicture}\n")
             data = sorted(self.step_function_data())
             print("data")
             print(data)
-            output_file.write("  \\datavisualization[scientific axes,visualize as smooth line,\n")
-            output_file.write("  x axis={ticks={none,major={at={")
-            output_file.write(", " + str(N(data[0][0],digits=4)) + " as \\(" + str(data[0][0]) + "\\)")
+            f.write("  \\datavisualization[scientific axes, " +
+                        "visualize as smooth line,\n")
+            f.write("  x axis={ticks={none,major={at={")
+            f.write(", " + str(N(data[0][0],digits=4)) + " as \\(" + \
+                                     str(data[0][0]) + "\\)")
             for jump_arg, jump in data:
-                output_file.write(", " + str(N(jump_arg,digits=4)) + " as \\(" + str(jump_arg) + "\\)")
-                output_file.write("}}}}\n")
-                output_file.write("  ]\n")
-                output_file.write("data [format=function]{\n")
-                output_file.write("var x : interval [0:1];\n")
-                output_file.write("func y = \\value x;\n")
-                output_file.write("};\n")
+                f.write(", " + str(N(jump_arg,digits=4)) +
+                        " as \\(" + str(jump_arg) + "\\)")
+                f.write("}}}}\n")
+                f.write("  ]\n")
+                f.write("data [format=function]{\n")
+                f.write("var x : interval [0:1];\n")
+                f.write("func y = \\value x;\n")
+                f.write("};\n")
                 # close LaTeX enviroments
-                output_file.write("\\end{tikzpicture}\n")
-                output_file.write("\\end{document}\n")
+                f.write("\\end{tikzpicture}\n")
+                f.write("\\end{document}\n")
 
 
 class TorusCable(object):
@@ -333,7 +342,7 @@ class TorusCable(object):
         k = abs(k_n)
         ksi = 1/(2 * k + 1)
 
-        counter = collections.Counter()
+        counter = Counter()
         # print("lambda_odd, i.e. (theta + e) % 2 != 0")
         for e in range(1, k + 1):
             if (theta + e) % 2 != 0:
