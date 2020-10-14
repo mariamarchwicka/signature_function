@@ -632,8 +632,8 @@ class TorusCable(object):
         # print(theta, end=" ")
         # print(sum)
         if sum.is_integer():
-            print("#" * 100)
-            print(theta)
+            # print("#" * 100)
+            # print(theta)
             return True
         return False
         #     if self.is_value_for_vector_class_big(vector, sigma_or_sign):
