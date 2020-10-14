@@ -141,7 +141,7 @@ def search_for_large_sigma_value(knot_formula=None, limit=None,
                     print("Ratio-condition does not hold")
                 continue
         cable = TorusCable(knot_formula=knot_formula, q_vector=q)
-        list_of_ranges = config.get_list_of_ranges(cable.q_vector[-1])
+        list_of_ranges = config.get_list_of_ranges(cable.q_order)
         if cable.eval_cable_for_large_values(list_of_ranges, SIGMA,
                                             verbose=verbose,
                                             print_results=print_results):
