@@ -1,11 +1,70 @@
 #!/usr/bin/python
-attach("cable_signature.sage")
-# attach("my_signature.sage")
+import os
+import sys
 
+import itertools as it
+import re
 import numpy as np
 
 
-def main():
+attach("cable_signature.sage")
+attach("my_signature.sage")
+
+
+
+# TBD: read about Factory Method, variable in docstring, sage documentation
+
+
+class Config(object):
+    def __init__(self):
+        self.f_results = os.path.join(os.getcwd(), "results.out")
+
+        # knot_formula is a schema for knots which signature function
+        # will be calculated
+        self.knot_formula = "[[k[0], k[1], k[3]], " + \
+                             "[-k[1], -k[3]], " + \
+                             "[k[2], k[3]], " + \
+                             "[-k[0], -k[2], -k[3]]]"
+
+        # self.knot_formula = "[[k[0], k[1], k[4]], [-k[1], -k[3]], \
+        #                      [k[2], k[3]], [-k[0], -k[2], -k[4]]]"
+        #
+        #
+        #
+        # self.knot_formula = "[[k[3]], [-k[3]], \
+        #                      [k[3]], [-k[3]] ]"
+        #
+        # self.knot_formula = "[[k[3], k[2], k[0]], [-k[2], -k[0]], \
+        #                      [k[1], k[0]], [-k[3], -k[1], -k[0]]]"
+        #
+        # self.knot_formula = "[[k[0], k[1], k[2]], [k[3], k[4]], \
+        #                      [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
+        # self.knot_formula = "[[k[0], k[1], k[2]], [k[3]],\
+        #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
+        self.limit = 3
+
+        # in rch for large sigma, for 1. checked knot q_1 = 3 + start_shift
+        self.start_shift =  0
+
+        self.verbose = True
+        # self.verbose = False
+
+        self.print_results = True
+        # self.print_results = False
+
+        # is the ratio restriction for values in q_vector taken into account
+        self.only_slice_candidates = True
+        self.only_slice_candidates = False
+
+
+
+
+def main(arg=None):
+    try:
+        limit = int(arg[1])
+    except (IndexError, TypeError):
+        limit = None
+
     global cable, cab_2, cab_1, joined_formula
     # self.knot_formula = "[[k[0], k[1], k[3]], " + \
     #                      "[-k[1], -k[3]], " + \
@@ -34,58 +93,7 @@ def main():
     cab_2 = TorusCable(knot_formula=knot_formula, q_vector=q_vector)
     cable = cab_1 + cab_2
     joined_formula = cable.knot_formula
-
-def is_big_in_ranges(cable, ranges_list):
-    we_have_no_problem = True
-    for theta in it.product(*ranges_list):
-        if all(i == 0 for i in theta):
-            continue
-        we_have_a_problem = True
-        if cable.is_metaboliser(theta):
-            # print("\n" * 10)
-            for shift in range(1, cable.q_order):
-                shifted_theta = [(shift * th) % cable.last_q_list[i]
-                                 for i, th in enumerate(theta)]
-                shifted_theta = [min(th, cable.last_q_list[i] - th)
-                                 for i, th in enumerate(shifted_theta)]
-                sf = cable.signature_as_function_of_theta(*shifted_theta)
-                extremum = abs(sf.extremum())
-                if shift > 1:
-                    print(shifted_theta, end=" ")
-                    print(extremum)
-                if extremum > 5 + np.count_nonzero(shifted_theta):
-                    # print("ok")
-                    we_have_a_problem = False
-                    break
-                elif shift == 1:
-                    print("*" * 10)
-                    print(shifted_theta, end=" ")
-                    print(extremum)
-
-            if we_have_a_problem:
-                we_have_a_big_problem = True
-                break
-    if not we_have_no_problem:
-        print("we have a big problem")
-    return we_have_no_problem
-
-def check_all_thetas(cable):
-    upper_bounds = cable.last_k_list[:3]
-    ranges_list = [range(0, i + 1) for i in upper_bounds]
-    ranges_list.append(range(0, 2))
-    ranges_list += [range(0, 1) for _ in range(4)]
-    if not is_big_in_ranges(cable, ranges_list):
-        return False
-    upper_bounds = cable.last_k_list[5:8]
-    ranges_list = [range(0, 1) for _ in range(4)]
-    ranges_list += [range(0, i + 1) for i in upper_bounds]
-    ranges_list.append(range(0, 2))
-    if not is_big_in_ranges(cable, ranges_list):
-        return False
-    return True
-
-
-
+    print(cable.is_signature_big_for_all_metabolizers())
 
 
 def get_q_vector(q_vector_size, lowest_number=1):
@@ -107,6 +115,17 @@ def get_q_vector(q_vector_size, lowest_number=1):
         q = [P.unrank(i) for i in c]
         ratio = q[3] > 4 * q[2] and q[2] > 4 * q[1] and q[1] > 4 * q[0]
         if not ratio:
-                # print("Ratio-condition does not hold")
+            # print("Ratio-condition does not hold")
             continue
         print("q = ", q)
+
+
+if __name__ == '__main__':
+    global config
+    config = Config()
+    if '__file__' in globals():
+        # skiped in interactive mode as __file__ is not defined
+        main(sys.argv)
+    else:
+        pass
+        # main()
