@@ -188,11 +188,11 @@ class TorusCable(object):
         elif q_vector is not None:
             self.q_vector = q_vector
         else:
-            msg = "Please give a list of k (k_vector) or q values (q_vector)."
-            raise ValueError(msg)
+            self.q_vector = self.get_q_vector(self.knot_formula)
 
         self._sigma_function = None
         self._signature_as_function_of_theta = None
+
 
     @property
     def signature_as_function_of_theta(self):
@@ -346,6 +346,18 @@ class TorusCable(object):
         # print(self.q_vector)
         return cable
 
+
+    def get_q_vector(knot_formula, slice=True):
+        lowest_number = 2
+        q_vector = [0] * (TorusCable.extract_max(knot_formula) + 1)
+        P = Primes()
+        for layer in TorusCable.get_layers_from_formula(knot_formula)[::-1]:
+            for el in layer:
+                q_vector[el] = P.next(lowest_number)
+                lowest_number = q_vector[el]
+            lowest_number *= 4
+        return q_vector
+
     @staticmethod
     def extract_max(string):
         numbers = re.findall(r'\d+', string)
@@ -430,6 +442,25 @@ class TorusCable(object):
                 description += "2, " + str(2 * abs(k) + 1) + "; "
             description = description[:-2] + ") # "
         return description[:-3]
+
+    @staticmethod
+    def get_layers_from_formula(knot_formula):
+        layers = []
+        k_indices = re.sub(r'k', '', knot_formula)
+        k_indices = re.sub(r'-', '', k_indices)
+        k_indices = re.sub(r'\n', '', k_indices)
+        k_indices = re.sub(r'\[\d+\]', lambda x: x.group()[1:-1], k_indices)
+        k_indices = eval(k_indices)
+        number_of_layers = max(len(lst) for lst in k_indices)
+        print(k_indices)
+        layers = []
+        for i in range(1, number_of_layers + 1):
+            layer = set()
+            for lst in k_indices:
+                if len(lst) >= i:
+                    layer.add(lst[-i])
+            layers.append(layer)
+        return layers
 
 
     def get_signature_as_function_of_theta(self, **key_args):
@@ -565,11 +596,9 @@ class TorusCable(object):
 
 
     def is_signature_big_in_ranges(self, ranges_list):
-        is_big = True
         for theta in it.product(*ranges_list):
             if not any(theta):
                 continue
-
             we_have_a_problem = True
             if self.is_metabolizer(theta):
                 for shift in range(1, self.q_order):
@@ -591,11 +620,9 @@ class TorusCable(object):
                         print(shifted_theta, end=" ")
                         print(extremum)
                 if we_have_a_problem:
-                    is_big = False
-                    break
-        if not is_big:
-            print("we have a big problem")
-        return is_big
+                    print("\n" * 10 + "!" * 1000)
+                    return False
+        return True
 
     def is_signature_big_for_all_metabolizers(self):
         if len(self.knot_sum) == 8:
