@@ -1,4 +1,10 @@
 #!/usr/bin/python
+
+# TBD: read about Factory Method, variable in docstring, sage documentation,
+# print calc. to output file
+# delete separation for twisted_part and untwisted_part
+# decide about printing option
+
 import os
 import sys
 
@@ -10,9 +16,6 @@ import numpy as np
 attach("cable_signature.sage")
 attach("my_signature.sage")
 
-
-
-# TBD: read about Factory Method, variable in docstring, sage documentation
 
 
 class Config(object):
@@ -29,8 +32,6 @@ class Config(object):
         # self.knot_formula = "[[k[0], k[1], k[4]], [-k[1], -k[3]], \
         #                      [k[2], k[3]], [-k[0], -k[2], -k[4]]]"
         #
-        #
-        #
         # self.knot_formula = "[[k[3]], [-k[3]], \
         #                      [k[3]], [-k[3]] ]"
         #
@@ -43,21 +44,8 @@ class Config(object):
         #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
         self.limit = 3
 
-        # in rch for large sigma, for 1. checked knot q_1 = 3 + start_shift
-        self.start_shift =  0
-
         self.verbose = True
         # self.verbose = False
-
-        self.print_results = True
-        # self.print_results = False
-
-        # is the ratio restriction for values in q_vector taken into account
-        self.only_slice_candidates = True
-        self.only_slice_candidates = False
-
-
-
 
 def main(arg=None):
     try:
@@ -65,7 +53,7 @@ def main(arg=None):
     except (IndexError, TypeError):
         limit = None
 
-    global cable, cab_2, cab_1, joined_formula
+    global cable  # , cab_2, cab_1
     # self.knot_formula = "[[k[0], k[1], k[3]], " + \
     #                      "[-k[1], -k[3]], " + \
     #                      "[k[2], k[3]], " + \
@@ -73,10 +61,7 @@ def main(arg=None):
 
     # knot_formula = config.knot_formula
     # q_vector = (3, 5, 7, 13)
-    # cab_to_update = TorusCable(knot_formula=knot_formula, q_vector=q_vector)
     # q_vector = (3, 5, 7, 11)
-    # cab_to_add = TorusCable(knot_formula=knot_formula, q_vector=q_vector)
-    # cab_shifted = cab_to_update.add_with_shift(cab_to_add)
 
     # q_vector = (5, 13, 19, 41,\
     #             5, 17, 23, 43)
@@ -93,9 +78,6 @@ def main(arg=None):
     cab_1 = TorusCable(knot_formula=formula_1, q_vector=q_vector)
     cab_2 = TorusCable(knot_formula=formula_2, q_vector=q_vector)
     cable = cab_1 + cab_2
-
-    joined_formula = cable.knot_formula
-    # print(cable.is_signature_big_for_all_metabolizers())
 
 if __name__ == '__main__':
     global config

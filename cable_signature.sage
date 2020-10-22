@@ -7,8 +7,6 @@ from sage.arith.functions import LCM_list
 import warnings
 import re
 
-SIGNATURE = 0
-SIGMA = 1
 
 # 9.11 (9.8)
 # 9.15 (9.9)
@@ -94,10 +92,6 @@ class SignatureFunction(object):
         return SignatureFunction(counter=counter)
 
     def __eq__(self, other):
-        self_cnt = Counter({k : v for k, v in self.cnt_signature_jumps.items()
-                           if v != 0})
-        other_cnt = Counter({k : v for k, v in other.cnt_signature_jumps.items()
-                            if v != 0})
         return self.cnt_signature_jumps == other.cnt_signature_jumps
 
     def __str__(self):
@@ -120,18 +114,13 @@ class SignatureFunction(object):
 
     def total_sign_jump(self):
         # Total signature jump is the sum of all jumps.
-        return sum([j[1] for j in self.to_list()])
-
-    def to_list(self):
-        # Return signature jumps formated as a list
-        return sorted(self.cnt_signature_jumps.items())
+        return sum([j[1] for j in sorted(self.cnt_signature_jumps.items())])
 
     def step_function_data(self):
         # Transform the signature jump data to a format understandable
         # by the plot function.
-        l = self.to_list()
-        assert l == sorted(self.cnt_signature_jumps.items())
-        vals = ([(d[0], sum(2 * j[1] for j in l[:l.index(d)+1])) for d in l] +
+        lst = sorted(self.cnt_signature_jumps.items())
+        vals = ([(d[0], sum(2 * j[1] for j in lst[:lst.index(d)+1])) for d in lst] +
               [(0,self.cnt_signature_jumps[0]), (1,self.total_sign_jump())])
         print("step_function_data")
         print(vals)
@@ -268,82 +257,29 @@ class TorusCable(object):
     def q_vector(self, new_q_vector):
         self.k_vector = [(q - 1)/2 for q in new_q_vector]
 
-    def add_with_shift(self, other):
-        # print("*" * 100)
-        # print("BEFORE")
-        # print(self.knot_description)
-        # print(self.knot_sum)
-        # print("*" * 100)
-        # print("BEFORE k_vectors self, other")
-        # print(self.k_vector)
-        # print(other.k_vector)
-
-        shift = len(self.k_vector)
-        formula = re.sub(r'\d+', lambda x: str(int(x.group()) + shift),
-                  other.knot_formula)
-
-        knot_formula = self.knot_formula[:-1] + ",\n" + formula[1:]
-        k_vector = self.k_vector + other.k_vector
-        cable = TorusCable(knot_formula, k_vector=k_vector)
-        s_signature_as_function_of_theta = self.signature_as_function_of_theta
-        o_signature_as_function_of_theta = other.signature_as_function_of_theta
-
-        shift = len(self.knot_sum)
-        shift = len(self.knot_sum)
-        def signature_as_function_of_theta(*thetas, **kwargs):
-            result = s_signature_as_function_of_theta(*thetas[shift:]) + \
-                     o_signature_as_function_of_theta(*thetas[0:shift])
-            return result
-        cable._signature_as_function_of_theta = signature_as_function_of_theta
-        # print("*" * 100)
-        # print("AFTER")
-        # print(self.knot_description)
-        # print(self.knot_formula)
-        # print(self.knot_sum)
-        # print("*" * 100)
-        # print("AFTER k_vector, q_vector")
-        # print(self.k_vector)
-        # print(self.q_vector)
-        return cable
 
     def __add__(self, other):
         if self.k_vector != other.k_vector:
             msg = "k_vectors are different. k-vector preserving addition is " +\
-                  "impossible. The function add_with_shift was called instead"
+                  "impossible."
             warnings.warn(msg)
-        # print("*" * 100)
-        # print("BEFORE")
-        # print(self.knot_description)
-        # print(self.knot_sum)
-        # print("*" * 100)
-        # print("BEFORE k_vectors self, other")
-
-        knot_formula = self.knot_formula[:-1] + ",\n" + other.knot_formula[1:]
+            shift = len(self.k_vector)
+            formula = re.sub(r'\d+', lambda x: str(int(x.group()) + shift),
+                      other.knot_formula)
+            self.k_vector = self.k_vector + other.k_vector
+            other.k_vector = self.k_vector
+        else:
+            knot_formula = self.knot_formula[:-1] + ",\n" + \
+                           other.knot_formula[1:]
         cable = TorusCable(knot_formula, k_vector=self.k_vector)
         s_signature_as_function_of_theta = self.signature_as_function_of_theta
         o_signature_as_function_of_theta = other.signature_as_function_of_theta
-        # print("FUNCTIONS ")
-        # print(s_signature_as_function_of_theta([1,1,1,2]))
-        # print(o_signature_as_function_of_theta([1,1,1,2]))
-        # print("FUNCTIONS 1111")
-        # print(s_signature_as_function_of_theta([1,1,1,1]))
-        # print(o_signature_as_function_of_theta([1,1,1,1]))
-
         shift = len(self.knot_sum)
         def signature_as_function_of_theta(*thetas, **kwargs):
             result = s_signature_as_function_of_theta(*thetas[shift:]) + \
                      o_signature_as_function_of_theta(*thetas[0:shift])
             return result
         cable._signature_as_function_of_theta = signature_as_function_of_theta
-        # print("*" * 100)
-        # print("AFTER")
-        # print(self.knot_description)
-        # print(self.knot_formula)
-        # print(self.knot_sum)
-        # print("*" * 100)
-        # print("AFTER k_vector, q_vector")
-        # print(self.k_vector)
-        # print(self.q_vector)
         return cable
 
 
@@ -445,14 +381,10 @@ class TorusCable(object):
 
     @staticmethod
     def get_layers_from_formula(knot_formula):
-        layers = []
-        k_indices = re.sub(r'k', '', knot_formula)
-        k_indices = re.sub(r'-', '', k_indices)
-        k_indices = re.sub(r'\n', '', k_indices)
+        k_indices = re.sub(r'[k-]', '', knot_formula)
         k_indices = re.sub(r'\[\d+\]', lambda x: x.group()[1:-1], k_indices)
         k_indices = eval(k_indices)
         number_of_layers = max(len(lst) for lst in k_indices)
-        print(k_indices)
         layers = []
         for i in range(1, number_of_layers + 1):
             layer = set()
@@ -638,7 +570,6 @@ class TorusCable(object):
             return True
 
         elif len(self.knot_sum) == 4:
-            print("\n\n\nhohohohohoho")
             upper_bounds = self.last_k_list[:3]
             ranges_list = [range(0, i + 1) for i in upper_bounds]
             ranges_list.append(range(0, 2))
