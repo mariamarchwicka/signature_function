@@ -14,7 +14,7 @@ import numpy as np
 
 
 attach("cable_signature.sage")
-attach("my_signature.sage")
+
 
 
 
@@ -47,6 +47,8 @@ class Config(object):
         self.verbose = True
         # self.verbose = False
 
+
+
 def main(arg=None):
     try:
         limit = int(arg[1])
@@ -63,21 +65,53 @@ def main(arg=None):
     # q_vector = (3, 5, 7, 13)
     # q_vector = (3, 5, 7, 11)
 
-    # q_vector = (5, 13, 19, 41,\
-    #             5, 17, 23, 43)
 
     formula_1 = "[[k[0], k[5], k[3]], " + \
-                         "[-k[1], -k[3]], " + \
-                         "[k[2], k[3]], " + \
-                         "[-k[0], -k[2], -k[3]]]"
+                      "[-k[1], -k[3]], " + \
+                       "[k[2], k[3]], " + \
+               "[-k[0], -k[2], -k[3]]]"
     formula_2 = "[[k[4], k[1], k[7]], " + \
-                         "[-k[5], -k[7]], " + \
-                         "[k[6], k[7]], " + \
-                         "[-k[4], -k[6], -k[7]]]"
-    q_vector = TorusCable.get_q_vector(formula_1[:-1] + ", " + formula_2[1:])
-    cab_1 = TorusCable(knot_formula=formula_1, q_vector=q_vector)
-    cab_2 = TorusCable(knot_formula=formula_2, q_vector=q_vector)
+                      "[-k[5], -k[7]], " + \
+                       "[k[6], k[7]], " + \
+               "[-k[4], -k[6], -k[7]]]"
+    q_vector = (5, 13, 19, 41,\
+                5, 17, 23, 43)
+    q_vector = (3, 7, 13, 19,\
+                5, 11, 17, 23)
+
+    cab_1 = CableSum(knot_formula=formula_1, q_vector=q_vector)
+    cab_2 = CableSum(knot_formula=formula_2, q_vector=q_vector)
     cable = cab_1 + cab_2
+
+
+    sf = cab_1.signature_as_function_of_theta(thetas=None)
+    # sf.tikz_plot("hoho.tex")
+
+    # cab_1.is_signature_big_for_all_metabolizers()
+    sf = cab_1.signature_as_function_of_theta()
+
+    sf = cable.signature_as_function_of_theta()
+
+    sf = cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
+    writer = SignatureWriter(sf)
+    writer.plot(title="hoho")
+
+    cable.is_signature_big_for_all_metabolizers()
+
+
+    q_vector = CableSum.get_q_vector_alg_slice(formula_1[:-1] + ", " + formula_2[1:])
+    cab_1 = CableSum(knot_formula=formula_1, q_vector=q_vector)
+    cab_2 = CableSum(knot_formula=formula_2, q_vector=q_vector)
+    cable = cab_1 + cab_2
+    cable.is_signature_big_for_all_metabolizers()
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     global config
