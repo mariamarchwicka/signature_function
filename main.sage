@@ -68,7 +68,6 @@ def main(arg=None):
     # knot_formula = config.knot_formula
     # q_vector = (3, 5, 7, 13)
     # q_vector = (3, 5, 7, 11)
-    return
 
     formula_1 = "[[k[0], k[5], k[3]], " + \
                       "[-k[1], -k[3]], " + \
@@ -89,33 +88,23 @@ def main(arg=None):
     cable_with_shift = cable_template_1.add_with_shift(cable_template_2)
     print(cable_with_shift.knot_formula)
     cable_template.fill_q_vector()
+    print(cable_template.q_vector)
+    print(cable_template.knot_formula)
     cable = cable_template.cable
 
     sf = cable(4,4,4,4,0,0,0,0)
-    writer = SignatureWriter(sf)
-    writer.plot(title="hoho")
 
     sf = cable_template.cable.signature_as_function_of_theta(4,1,1,4,0,0,0,0)
-    writer = SignatureWriter(sf)
-    writer.plot(title="hoho", color='red')
 
 
-    cable_template.cable.is_signature_big_for_all_metabolizers()
+    # cable_template.cable.is_signature_big_for_all_metabolizers()
 
 
     cable_template_1 = CableTemplate(knot_formula=formula_1)
     cable_template_2 = CableTemplate(knot_formula=formula_2)
     cable_template = cable_template_1 + cable_template_2
-    cable_template.cable.is_signature_big_for_all_metabolizers()
-    sf = cable_template.cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
-    writer = SignatureWriter(sf)
-    writer.plot(title="hoho")
-
-
-
-
-
-
+    # cable_template.cable.is_signature_big_for_all_metabolizers()
+    # sf = cable_template.cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
 
 
 

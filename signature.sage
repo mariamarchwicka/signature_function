@@ -145,8 +145,7 @@ class SignatureFunction():
         fig.suptitle(title)
 
         plt.tight_layout()
-        if save_path is None:
-            save_path = os.path.join(os.getcwd(),"tmp.png")
+        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
         save_path = Path(save_path)
         save_path = save_path.with_suffix('.png')
 
@@ -197,8 +196,8 @@ class SignatureFunction():
         fig.suptitle(title)
 
         plt.tight_layout()
-        if save_path is None:
-            save_path = os.path.join(os.getcwd(),"tmp.png")
+
+        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
         save_path = Path(save_path)
         save_path = save_path.with_suffix('.png')
 

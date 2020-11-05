@@ -18,8 +18,9 @@ class CableSummand():
     def __init__(self, knot_as_k_values):
         self.knot_as_k_values = knot_as_k_values
 
-        self._knot_description = self.get_summand_descrption(knot_as_k_values)
-        self._signature_as_function_of_theta = None
+        self.knot_description = self.get_summand_descrption(knot_as_k_values)
+        self.signature_as_function_of_theta = \
+                                self.get_summand_signature_as_theta_function()
 
 
     @staticmethod
@@ -31,18 +32,6 @@ class CableSummand():
         for k in knot_as_k_values:
             description += "2, " + str(2 * abs(k) + 1) + "; "
         return description[:-2] + ")"
-
-    @property
-    def knot_description(self):
-        return self._knot_description
-
-    @property
-    def signature_as_function_of_theta(self):
-        if self._signature_as_function_of_theta is None:
-            self._signature_as_function_of_theta = \
-                    self.get_summand_signature_as_theta_function()
-        return self._signature_as_function_of_theta
-
 
 
     @classmethod
@@ -137,7 +126,6 @@ class CableSummand():
                            for a in range(k + 1, q)}))
         return SignatureFunction(counter=counter)
 
-
     def get_summand_signature_as_theta_function(self):
         knot_as_k_values = self.knot_as_k_values
         def get_summand_signture_function(theta):
@@ -167,7 +155,6 @@ class CableSummand():
         name += "_theta_" + str(theta)
         return name
 
-
     def plot_summand_for_theta(self, theta, save_path=None):
         pp, sp = self.signature_as_function_of_theta(theta)
         title = self.knot_description + ", theta = " + str(theta)
@@ -176,15 +163,25 @@ class CableSummand():
             save_path = os.path.join(save_path, file_name)
         pp.plot_sum_with_other(sp, title=title, save_path=save_path)
 
-
     def plot_summand(self):
         range_limit = min(self.knot_as_k_values[-1] + 1, 3)
         for theta in range(range_limit):
             self.plot_summand_for_theta(theta)
 
 class CableSum():
+
     def __init__(self, knot_sum):
         self.knot_sum_as_k_valus = knot_sum
+        self.knot_description = self.get_knot_descrption(knot_sum)
+        self.patt_k_list = [abs(i[-1]) for i in knot_sum]
+        self.patt_q_list = [2 * i + 1 for i in self.patt_k_list]
+        if any(n not in Primes() for n in self.patt_q_list):
+            msg = "Incorrect k- or q-vector. This implementation assumes that"\
+                  + " all last q values are prime numbers.\n" + \
+                  str(self.patt_q_list)
+            raise ValueError(msg)
+        self.q_order = LCM_list(self.patt_q_list)
+
         self.knot_summands = [CableSummand(k) for k in knot_sum]
         self.signature_as_function_of_theta = \
                         self.get_signature_as_function_of_theta()
@@ -251,43 +248,6 @@ class CableSum():
     def plot_all_summands(self):
         for knot in self.knot_summands:
             knot.plot_summand()
-
-
-    @property
-    def knot_description(self):
-        return self._knot_description
-
-    @property
-    def patt_k_list(self):
-        return self._patt_k_list
-
-    @property
-    def patt_q_list(self):
-        return self._patt_q_list
-
-    # q_order is LCM of all q values for pattern knots
-    @property
-    def q_order(self):
-        return self._q_order
-    @q_order.setter
-    def q_order(self, val):
-        self._q_order = val
-
-    @property
-    def knot_sum_as_k_valus(self):
-        return self._knot_sum_as_k_valus
-    @knot_sum_as_k_valus.setter
-    def knot_sum_as_k_valus(self, knot_sum):
-        self._knot_sum_as_k_valus = knot_sum
-        self._knot_description = self.get_knot_descrption(knot_sum)
-        self._patt_k_list = [abs(i[-1]) for i in knot_sum]
-        self._patt_q_list = [2 * i + 1 for i in self._patt_k_list]
-        if any(n not in Primes() for n in self._patt_q_list):
-            msg = "Incorrect q-vector. This implementation assumes that" + \
-                  " all last q values are prime numbers.\n" + \
-                  str(self._patt_q_list)
-            raise ValueError(msg)
-        self.q_order = LCM_list(self._patt_q_list)
 
 
     def parse_thetas(self, *thetas):
@@ -441,9 +401,7 @@ class CableTemplate():
         return self._cable
 
     def fill_q_vector(self, q_vector=None, slice=True):
-        if q_vector is None:
-            q_vector =  self.get_q_vector(self.knot_formula)
-        self.q_vector = q_vector
+        self.q_vector = q_vector or self.get_q_vector(self.knot_formula, slice)
 
     @property
     def knot_formula(self):
@@ -499,10 +457,7 @@ class CableTemplate():
         number_of_layers = max(len(lst) for lst in k_indices)
         layers = []
         for i in range(1, number_of_layers + 1):
-            layer = set()
-            for lst in k_indices:
-                if len(lst) >= i:
-                    layer.add(lst[-i])
+            layer = [lst[-i] for lst in k_indices if len(lst)>= i]
             layers.append(layer)
         return layers
 
@@ -514,12 +469,8 @@ class CableTemplate():
 
 
     def __add__(self, other):
-        s_formula = self.knot_formula
-        o_formula = other.knot_formula
-        knot_formula = s_formula[:-1] + ",\n" + o_formula[1:]
-        cable_template = CableTemplate(knot_formula)
-        return cable_template
-
+        knot_formula = self.knot_formula[:-1] + ",\n" + other.knot_formula[1:]
+        return CableTemplate(knot_formula)
 
 
 def mod_one(n):
