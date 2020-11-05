@@ -121,6 +121,42 @@ class SignatureFunction():
         # Total signature jump is the sum of all jumps.
         return sum([j[1] for j in sorted(self.jumps_counter.items())])
 
+    def plot_four(self, sf1, sf2, sf3, save_path=None, title=''):
+
+        fig, axes_matrix = plt.subplots(2, 2, sharey=True,
+                                        figsize=(10,5))
+        sf0 = self
+        sf.plot(subplot=True,
+                ax=axes_matrix[0][1])
+
+        sf1.plot(subplot=True,
+                ax=axes_matrix[1][0],
+                color='red',
+                linestyle='dotted')
+
+        sf2.plot(subplot=True,
+                ax=axes_matrix[0][0],
+                color='black')
+
+        sf3.plot(subplot=True,
+                ax=axes_matrix[1][1],
+                alpha=0.3)
+
+        fig.suptitle(title)
+
+        plt.tight_layout()
+        if save_path is None:
+            save_path = os.path.join(os.getcwd(),"tmp.png")
+        save_path = Path(save_path)
+        save_path = save_path.with_suffix('.png')
+
+        plt.savefig(save_path)
+        plt.close()
+        image = Image.open(save_path)
+        image.show()
+
+
+        pass
 
 
     def plot_sum_with_other(self, other,
@@ -132,34 +168,28 @@ class SignatureFunction():
         fig, axes_matrix = plt.subplots(2, 2, sharey=True,
                                         figsize=(10,5))
 
-        tp.plot(title='subplot_tp',
-                subplot=True,
+        tp.plot(subplot=True,
                 ax=axes_matrix[0][1])
 
-        up.plot(title='subplot_up',
-                subplot=True,
+        up.plot(subplot=True,
                 ax=axes_matrix[1][0],
                 color='red',
                 linestyle='dotted')
 
-        sf.plot(title='subplot_up',
-                subplot=True,
+        sf.plot(subplot=True,
                 ax=axes_matrix[0][0],
                 color='black')
 
-        tp.plot(title='subplot_tp',
-                subplot=True,
+        tp.plot(subplot=True,
                 ax=axes_matrix[1][1],
                 alpha=0.3)
 
-        up.plot(title='subplot_up',
-                subplot=True,
+        up.plot(subplot=True,
                 ax=axes_matrix[1][1],
                 color='red', alpha=0.3,
                 linestyle='dotted')
 
-        sf.plot(title='subplot_up',
-                subplot=True,
+        sf.plot(subplot=True,
                 ax=axes_matrix[1][1],
                 color='black',
                 alpha=0.7,)
@@ -188,7 +218,8 @@ class SignatureFunction():
              title="",
              alpha=1,
              color='blue',
-             linestyle='solid'):
+             linestyle='solid',
+             ylabel=''):
 
         if ax is None:
             fig, ax = plt.subplots(1, 1)
@@ -198,7 +229,7 @@ class SignatureFunction():
         xmax = keys[1:]
         xmin = keys[:-1]
 
-        ax.set(ylabel='signature function')
+        ax.set(ylabel=ylabel)
         ax.set(title=title)
         ax.hlines(y, xmin, xmax, color=color, linestyle=linestyle, alpha=alpha)
 

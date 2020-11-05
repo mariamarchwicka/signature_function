@@ -64,7 +64,7 @@ def main(arg=None):
     template = CableTemplate(knot_formula, q_vector=[3, 5, 7, 11])
     cab = template.cable
     # cab.plot_all_summands()
-    cab.plot_sum_for_theta_vector([2,1,1,1], save_to_dir=True)
+    cab.plot_sum_for_theta_vector([0,4,0,4], save_to_dir=True)
     # knot_formula = config.knot_formula
     # q_vector = (3, 5, 7, 13)
     # q_vector = (3, 5, 7, 11)

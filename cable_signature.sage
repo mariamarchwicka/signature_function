@@ -108,11 +108,11 @@ class CableSummand():
         return SignatureFunction(values=results)
 
     @classmethod
-    def get_untwisted_part(cls, *knot_as_k_values, theta=0):
+    def get_satellite_part(cls, *knot_as_k_values, theta=0):
         patt_k = knot_as_k_values[-1]
         ksi = 1/(2 * abs(patt_k) + 1)
 
-        untwisted_part = SignatureFunction()
+        satellite_part = SignatureFunction()
         # For each knot summand consider k values in reversed order,
         # ommit k value for pattern.
         for layer_num, k in enumerate(knot_as_k_values[:-1][::-1]):
@@ -123,8 +123,8 @@ class CableSummand():
             for _ in range(layer_num):
                 right_shift = right_shift.double_cover()
                 left__shift = left__shift.double_cover()
-            untwisted_part += right_shift + left__shift
-        return untwisted_part
+            satellite_part += right_shift + left__shift
+        return satellite_part
 
     @staticmethod
     def get_untwisted_signature_function(j):
@@ -140,7 +140,7 @@ class CableSummand():
 
     def get_summand_signature_as_theta_function(self):
         knot_as_k_values = self.knot_as_k_values
-        def get_summand_signture_function(theta, plot=False):
+        def get_summand_signture_function(theta):
 
             patt_k = knot_as_k_values[-1]
 
@@ -148,14 +148,10 @@ class CableSummand():
             theta %= (2 * abs(patt_k) + 1)
             theta = min(theta, 2 * abs(patt_k) + 1 - theta)
 
-            twisted_part = self.get_blanchfield_for_pattern(patt_k, theta)
-            untwisted_part = self.get_untwisted_part(*knot_as_k_values,
+            pattern_part = self.get_blanchfield_for_pattern(patt_k, theta)
+            satellite_part = self.get_satellite_part(*knot_as_k_values,
                                                      theta=theta)
-            if plot:
-
-                twisted_part.plot()
-                untwisted_part.plot()
-            return twisted_part, untwisted_part
+            return pattern_part, satellite_part
         get_summand_signture_function.__doc__ = \
             get_summand_signture_function_docsting
 
@@ -173,16 +169,15 @@ class CableSummand():
 
 
     def plot_summand_for_theta(self, theta, save_path=None):
-        tp, up = self.signature_as_function_of_theta(theta)
+        pp, sp = self.signature_as_function_of_theta(theta)
         title = self.knot_description + ", theta = " + str(theta)
         if save_path is not None:
             file_name = self.get_file_name_for_summand_plot(theta)
             save_path = os.path.join(save_path, file_name)
-        tp.plot_sum_with_other(up, title=title, save_path=save_path)
+        pp.plot_sum_with_other(sp, title=title, save_path=save_path)
 
 
     def plot_summand(self):
-        sf_theta = self.signature_as_function_of_theta
         range_limit = min(self.knot_as_k_values[-1] + 1, 3)
         for theta in range(range_limit):
             self.plot_summand_for_theta(theta)
@@ -228,6 +223,28 @@ class CableSum():
             save_path = None
         for i, knot in enumerate(self.knot_summands):
             knot.plot_summand_for_theta(thetas[i], save_path=save_path)
+
+        pp, sp = self.signature_as_function_of_theta(*thetas)
+        title = self.knot_description + ", thetas = " + str(thetas)
+        if save_path is not None:
+            file_name = re.sub(r', ', '_', str(thetas))
+            file_name = re.sub(r'[\[\]]', '', str(file_name))
+            file_path = os.path.join(save_path, file_name)
+        pp.plot_sum_with_other(sp, title=title, save_path=file_path)
+
+
+        if save_path is not None:
+            file_path = os.path.join(save_path, "all_" + file_name)
+        sf_list = [knot.signature_as_function_of_theta(thetas[i])
+                    for i, knot in enumerate(self.knot_summands)]
+            #     pp, sp = knot.signature_as_function_of_theta(thetas[i])
+            #     (pp + sp) = sp.plot
+            #
+            # pp.plot_sum_with_other(sp, title=title, save_path=file_path)
+
+
+
+
 
         return dir_name
 
@@ -319,23 +336,23 @@ class CableSum():
                 verbose = kwargs['verbose']
             thetas = self.parse_thetas(*thetas)
 
-            untwisted_part = SignatureFunction()
-            twisted_part = SignatureFunction()
+            satellite_part = SignatureFunction()
+            pattern_part = SignatureFunction()
 
             # for each cable knot (summand) in cable sum apply theta
             for i, knot in enumerate(self.knot_summands):
-                ssf = knot.signature_as_function_of_theta
-                tp, up = ssf(thetas[i])
-                twisted_part += tp
-                untwisted_part += up
-            sf = twisted_part + untwisted_part
+                sfth = knot.signature_as_function_of_theta
+                pp, sp = sfth(thetas[i])
+                pattern_part += pp
+                satellite_part += sp
+            sf = pattern_part + satellite_part
 
             if verbose:
                 print()
                 print(str(thetas))
                 print(sf)
             assert sf.total_sign_jump() == 0
-            return sf
+            return pattern_part, satellite_part
 
         signature_as_function_of_theta.__doc__ =\
                             signature_as_function_of_theta_docstring
@@ -363,7 +380,8 @@ class CableSum():
             # has a large signature.
             for shift in range(1, self.q_order):
                 shifted_thetas = [shift * th for th in thetas]
-                sf = self.signature_as_function_of_theta(*shifted_thetas)
+                pp, sp = self.signature_as_function_of_theta(*shifted_thetas)
+                sf = pp + sp
                 limit = 5 + np.count_nonzero(shifted_thetas)
                 extremum = abs(sf.extremum(limit=limit))
                 if shift > 1:
@@ -399,7 +417,6 @@ class CableSum():
             else:
                 print("\nOK")
         return True
-
 
 class CableTemplate():
 
@@ -602,7 +619,7 @@ signature_as_function_of_theta_docstring = \
 #                 T(2, q_n) is a pattern knot for a single cable from a cable sum
 #         theta:  twist/character for the cable (value form v vector)
 #     Return:
-#         SignatureFunction created for twisted signature function
+#         SignatureFunction created for pattern signature function
 #         for a given cable and theta/character
 #     Based on:
 #         Proposition 9.8. in Twisted Blanchfield Pairing
