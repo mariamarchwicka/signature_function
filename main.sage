@@ -12,7 +12,7 @@ import itertools as it
 import re
 import numpy as np
 
-
+attach("signature.sage")
 attach("cable_signature.sage")
 
 
@@ -55,16 +55,20 @@ def main(arg=None):
     except (IndexError, TypeError):
         limit = None
 
-    global cable  # , cab_2, cab_1
-    # self.knot_formula = "[[k[0], k[1], k[3]], " + \
-    #                      "[-k[1], -k[3]], " + \
-    #                      "[k[2], k[3]], " + \
-    #                      "[-k[0], -k[2], -k[3]]]"
+    # global cable_template , cable_template_2, cable_template_1
 
+    knot_formula = "[[k[0], k[1], k[3]], " + \
+                     "[-k[1], -k[3]], " + \
+                     "[k[2], k[3]], " + \
+                     "[-k[0], -k[2], -k[3]]]"
+    template = CableTemplate(knot_formula, q_vector=[3, 5, 7, 11])
+    cab = template.cable
+    # cab.plot_all_summands()
+    cab.plot_sum_for_theta_vector([2,1,1,1], save_to_dir=True)
     # knot_formula = config.knot_formula
     # q_vector = (3, 5, 7, 13)
     # q_vector = (3, 5, 7, 11)
-
+    return
 
     formula_1 = "[[k[0], k[5], k[3]], " + \
                       "[-k[1], -k[3]], " + \
@@ -75,35 +79,37 @@ def main(arg=None):
                        "[k[6], k[7]], " + \
                "[-k[4], -k[6], -k[7]]]"
     q_vector = (5, 13, 19, 41,\
-                5, 17, 23, 43)
-    q_vector = (3, 7, 13, 19,\
+                7, 17, 23, 43)
+    q_vector_small = (3, 7, 13, 19,\
                 5, 11, 17, 23)
 
-    cab_1 = CableSum(knot_formula=formula_1, q_vector=q_vector)
-    cab_2 = CableSum(knot_formula=formula_2, q_vector=q_vector)
-    cable = cab_1 + cab_2
+    cable_template_1 = CableTemplate(knot_formula=formula_1)
+    cable_template_2 = CableTemplate(knot_formula=formula_2)
+    cable_template = cable_template_1 + cable_template_2
+    cable_with_shift = cable_template_1.add_with_shift(cable_template_2)
+    print(cable_with_shift.knot_formula)
+    cable_template.fill_q_vector()
+    cable = cable_template.cable
 
-
-    sf = cab_1.signature_as_function_of_theta(thetas=None)
-    # sf.tikz_plot("hoho.tex")
-
-    # cab_1.is_signature_big_for_all_metabolizers()
-    sf = cab_1.signature_as_function_of_theta()
-
-    sf = cable.signature_as_function_of_theta()
-
-    sf = cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
+    sf = cable(4,4,4,4,0,0,0,0)
     writer = SignatureWriter(sf)
     writer.plot(title="hoho")
 
-    cable.is_signature_big_for_all_metabolizers()
+    sf = cable_template.cable.signature_as_function_of_theta(4,1,1,4,0,0,0,0)
+    writer = SignatureWriter(sf)
+    writer.plot(title="hoho", color='red')
 
 
-    q_vector = CableSum.get_q_vector_alg_slice(formula_1[:-1] + ", " + formula_2[1:])
-    cab_1 = CableSum(knot_formula=formula_1, q_vector=q_vector)
-    cab_2 = CableSum(knot_formula=formula_2, q_vector=q_vector)
-    cable = cab_1 + cab_2
-    cable.is_signature_big_for_all_metabolizers()
+    cable_template.cable.is_signature_big_for_all_metabolizers()
+
+
+    cable_template_1 = CableTemplate(knot_formula=formula_1)
+    cable_template_2 = CableTemplate(knot_formula=formula_2)
+    cable_template = cable_template_1 + cable_template_2
+    cable_template.cable.is_signature_big_for_all_metabolizers()
+    sf = cable_template.cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
+    writer = SignatureWriter(sf)
+    writer.plot(title="hoho")
 
 
 
