@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env sage -python
 import numpy as np
 import itertools as it
 from typing import Iterable
@@ -16,13 +16,12 @@ from pathlib import Path
 
 class SignatureFunction():
 
-    def __init__(self, values=None, counter=None):
+    def __init__(self, values=None, counter=None, plot_title=''):
 
         # counter of signature jumps
         if counter is None:
             counter = Counter()
-            if values is None:
-                values = []
+            values = values or []
             for k, v in values:
                 counter[k] += v
 
@@ -34,6 +33,7 @@ class SignatureFunction():
         counter[0] += 0
         counter[1] += 0
         self.jumps_counter = counter
+        self.plot_title = plot_title
 
     def __rshift__(self, shift):
         # A shift of the signature functions corresponds to the rotation.
@@ -52,7 +52,11 @@ class SignatureFunction():
     def __add__(self, other):
         counter = copy(self.jumps_counter)
         counter.update(other.jumps_counter)
-        return SignatureFunction(counter=counter)
+        if self.plot_title and other.plot_title:
+            title = self.plot_title + " + " + other.plot_title
+        else:
+            title = self.plot_title or other.plot_title
+        return SignatureFunction(counter=counter, plot_title=title)
 
     def __sub__(self, other):
         counter = copy(self.jumps_counter)
@@ -79,9 +83,6 @@ class SignatureFunction():
         result = [jump for jump_arg, jump in items if jump_arg < mod_one(arg)]
         return 2 * sum(result) + self.jumps_counter[arg]
 
-    def is_zero_everywhere(self):
-        return not any(self.jumps_counter.values())
-
     def double_cover(self):
         # to read values for t^2
         items = self.jumps_counter.items()
@@ -103,6 +104,11 @@ class SignatureFunction():
         counter = Counter({mod_one(2 * k) : v for k, v in items if k >= 1/2})
         return SignatureFunction(counter=counter)
 
+
+    def is_zero_everywhere(self):
+        return not any(self.jumps_counter.values())
+
+
     def extremum(self, limit=None):
         max = 0
         current = 0
@@ -121,13 +127,36 @@ class SignatureFunction():
         # Total signature jump is the sum of all jumps.
         return sum([j[1] for j in sorted(self.jumps_counter.items())])
 
-    def plot_four(self, sf1, sf2, sf3, save_path=None, title=''):
+    @staticmethod
+    def plot_many(*sf_list, save_path=None, title='',):
+        axes_num = len(sf_list)
+        if axes_num > 36:
+            sf_list = sf_list[36]
+            axes_num = 36
+            # print war, set val in conf
+        rows = ceil(sqrt(axes_num))
+        cols = ceil(axes_num/rows)
+        fig, axes_matrix = plt.subplots(rows, cols,
+                                        sharey=True,
+                                        sharex=True,)
+        for i, sf in enumerate(sf_list):
+            col = i % cols
+            row = (i - col)/cols
+            sf.plot(subplot=True,
+                     ax=axes_matrix[row][col],
+                     title=sf.plot_title)
 
-        fig, axes_matrix = plt.subplots(2, 2, sharey=True,
-                                        figsize=(10,5))
-        sf0 = self
-        sf.plot(subplot=True,
-                ax=axes_matrix[0][1])
+        plt.tight_layout()
+        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
+        save_path = Path(save_path).with_suffix('.png')
+
+        plt.savefig(save_path)
+        plt.close()
+        image = Image.open(save_path)
+        image.show()
+
+        return
+
 
         sf1.plot(subplot=True,
                 ax=axes_matrix[1][0],
@@ -146,17 +175,12 @@ class SignatureFunction():
 
         plt.tight_layout()
         save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
-        save_path = Path(save_path)
-        save_path = save_path.with_suffix('.png')
+        save_path = Path(save_path).with_suffix('.png')
 
         plt.savefig(save_path)
         plt.close()
         image = Image.open(save_path)
         image.show()
-
-
-        pass
-
 
     def plot_sum_with_other(self, other,
                             save_path=None, title=''):
@@ -209,10 +233,6 @@ class SignatureFunction():
         image = Image.open(save_path)
         image.show()
 
-
-        pass
-
-
     def plot(self, subplot=False, ax=None, save_as='sf',
              title="",
              alpha=1,
@@ -240,8 +260,6 @@ class SignatureFunction():
         plt.close()
         image = Image.open(save_as)
         image.show()
-
-
 
     def step_function_data(self):
         # Transform the signature jump data to a format understandable

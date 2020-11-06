@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env sage -python
 
 # TBD: read about Factory Method, variable in docstring, sage documentation,
 # print calc. to output file
@@ -15,12 +15,21 @@ import numpy as np
 attach("signature.sage")
 attach("cable_signature.sage")
 
+# if not os.path.isfile('signature.py'):
+#     os.system('sage --preparse cable_signature.sage')
+#     os.system('mv cable_signature.sage.py cable_signature.py')
+# from signature import SignatureFunction
 
 
 
 class Config(object):
     def __init__(self):
+
         self.f_results = os.path.join(os.getcwd(), "results.out")
+
+        self.verbose = True
+        # self.verbose = False
+
 
         # knot_formula is a schema for knots which signature function
         # will be calculated
@@ -42,10 +51,7 @@ class Config(object):
         #                      [-k[0], -k[3], -k[4]], [-k[1], -k[2]]]"
         # self.knot_formula = "[[k[0], k[1], k[2]], [k[3]],\
         #                          [-k[0], -k[1], -k[3]], [-k[2]]]"
-        self.limit = 3
 
-        self.verbose = True
-        # self.verbose = False
 
 
 
@@ -68,7 +74,7 @@ def main(arg=None):
     # knot_formula = config.knot_formula
     # q_vector = (3, 5, 7, 13)
     # q_vector = (3, 5, 7, 11)
-
+    return
     formula_1 = "[[k[0], k[5], k[3]], " + \
                       "[-k[1], -k[3]], " + \
                        "[k[2], k[3]], " + \
@@ -85,11 +91,11 @@ def main(arg=None):
     cable_template_1 = CableTemplate(knot_formula=formula_1)
     cable_template_2 = CableTemplate(knot_formula=formula_2)
     cable_template = cable_template_1 + cable_template_2
-    cable_with_shift = cable_template_1.add_with_shift(cable_template_2)
+    # cable_with_shift = cable_template_1.add_with_shift(cable_template_2)
     print(cable_with_shift.knot_formula)
-    cable_template.fill_q_vector()
-    print(cable_template.q_vector)
-    print(cable_template.knot_formula)
+    # cable_template.fill_q_vector()
+    # print(cable_template.q_vector)
+    # print(cable_template.knot_formula)
     cable = cable_template.cable
 
     sf = cable(4,4,4,4,0,0,0,0)
@@ -104,7 +110,7 @@ def main(arg=None):
     cable_template_2 = CableTemplate(knot_formula=formula_2)
     cable_template = cable_template_1 + cable_template_2
     # cable_template.cable.is_signature_big_for_all_metabolizers()
-    # sf = cable_template.cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
+    sf = cable_template.cable.signature_as_function_of_theta(4,4,4,4,0,0,0,0)
 
 
 

@@ -1,13 +1,15 @@
-#!/usr/bin/python
+#!/usr/bin/env sage -python
 import numpy as np
 import itertools as it
+import matplotlib.pyplot as plt
+
+import warnings
+import re
+import inspect
+
 from typing import Iterable
 from collections import Counter
 from sage.arith.functions import LCM_list
-import warnings
-import re
-import matplotlib.pyplot as plt
-import inspect
 
 # 9.11 (9.8)
 # 9.15 (9.9)
@@ -22,7 +24,6 @@ class CableSummand():
         self.signature_as_function_of_theta = \
                                 self.get_summand_signature_as_theta_function()
 
-
     @staticmethod
     def get_summand_descrption(knot_as_k_values):
         description = ""
@@ -32,7 +33,6 @@ class CableSummand():
         for k in knot_as_k_values:
             description += "2, " + str(2 * abs(k) + 1) + "; "
         return description[:-2] + ")"
-
 
     @classmethod
     def get_blanchfield_for_pattern(cls, k_n, theta=0):
@@ -45,17 +45,13 @@ class CableSummand():
 
         k = abs(k_n)
         assert theta <= k, msg
-        results = []
 
+        results = []
         ksi = 1/(2 * k + 1)
 
-        counter = Counter()
         # print("lambda_odd, i.e. (theta + e) % 2 != 0")
         for e in range(1, k + 1):
             if (theta + e) % 2 != 0:
-                counter[e * ksi] = 1 * sgn(k_n)
-                counter[1 - e * ksi] = -1 * sgn(k_n)
-
                 results.append((e * ksi, 1 * sgn(k_n)))
                 results.append((1 - e * ksi, -1 * sgn(k_n)))
 
@@ -139,7 +135,18 @@ class CableSummand():
             pattern_part = self.get_blanchfield_for_pattern(patt_k, theta)
             satellite_part = self.get_satellite_part(*knot_as_k_values,
                                                      theta=theta)
-            return pattern_part, satellite_part
+            sf = satellite_part + pattern_part
+
+            satellite_part.plot_title = self.knot_description + \
+                                        ", theta = " + str(theta) + \
+                                         ", satellite part."
+            pattern_part.plot_title = self.knot_description + \
+                                      ", theta = " + str(theta) + \
+                                      ", pattern part."
+            sf.plot_title = self.knot_description +\
+                            ", theta = " + str(theta)
+
+            return pattern_part, satellite_part, sf
         get_summand_signture_function.__doc__ = \
             get_summand_signture_function_docsting
 
@@ -156,7 +163,7 @@ class CableSummand():
         return name
 
     def plot_summand_for_theta(self, theta, save_path=None):
-        pp, sp = self.signature_as_function_of_theta(theta)
+        pp, sp, sf = self.signature_as_function_of_theta(theta)
         title = self.knot_description + ", theta = " + str(theta)
         if save_path is not None:
             file_name = self.get_file_name_for_summand_plot(theta)
@@ -221,7 +228,7 @@ class CableSum():
         for i, knot in enumerate(self.knot_summands):
             knot.plot_summand_for_theta(thetas[i], save_path=save_path)
 
-        pp, sp = self.signature_as_function_of_theta(*thetas)
+        pp, sp, sf = self.signature_as_function_of_theta(*thetas)
         title = self.knot_description + ", thetas = " + str(thetas)
         if save_path is not None:
             file_name = re.sub(r', ', '_', str(thetas))
@@ -232,9 +239,18 @@ class CableSum():
 
         if save_path is not None:
             file_path = os.path.join(save_path, "all_" + file_name)
-        sf_list = [knot.signature_as_function_of_theta(thetas[i])
+        sf_list = [knot.signature_as_function_of_theta(thetas[i])[2]
                     for i, knot in enumerate(self.knot_summands)]
-            #     pp, sp = knot.signature_as_function_of_theta(thetas[i])
+        sf_list.append(sf_list[-1])
+        sf_list.append(sf_list[-1])
+        sf_list.append(sf_list[-1])
+        sf_list.append(sf_list[-1])
+        sf_list.append(sf_list[-1])
+        sf_list.append(sf_list[-1])
+        # sf_list.append(sf_list[-1])
+
+        SignatureFunction.plot_many(*sf_list)
+            #     pp, sp, sf = knot.signature_as_function_of_theta(thetas[i])
             #     (pp + sp) = sp.plot
             #
             # pp.plot_sum_with_other(sp, title=title, save_path=file_path)
@@ -248,7 +264,6 @@ class CableSum():
     def plot_all_summands(self):
         for knot in self.knot_summands:
             knot.plot_summand()
-
 
     def parse_thetas(self, *thetas):
         summands_num = len(self.knot_sum_as_k_valus)
@@ -302,7 +317,7 @@ class CableSum():
             # for each cable knot (summand) in cable sum apply theta
             for i, knot in enumerate(self.knot_summands):
                 sfth = knot.signature_as_function_of_theta
-                pp, sp = sfth(thetas[i])
+                pp, sp, _ = sfth(thetas[i])
                 pattern_part += pp
                 satellite_part += sp
             sf = pattern_part + satellite_part
@@ -312,7 +327,7 @@ class CableSum():
                 print(str(thetas))
                 print(sf)
             assert sf.total_sign_jump() == 0
-            return pattern_part, satellite_part
+            return pattern_part, satellite_part, sf
 
         signature_as_function_of_theta.__doc__ =\
                             signature_as_function_of_theta_docstring
@@ -340,8 +355,7 @@ class CableSum():
             # has a large signature.
             for shift in range(1, self.q_order):
                 shifted_thetas = [shift * th for th in thetas]
-                pp, sp = self.signature_as_function_of_theta(*shifted_thetas)
-                sf = pp + sp
+                pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
                 limit = 5 + np.count_nonzero(shifted_thetas)
                 extremum = abs(sf.extremum(limit=limit))
                 if shift > 1:
@@ -377,6 +391,7 @@ class CableSum():
             else:
                 print("\nOK")
         return True
+
 
 class CableTemplate():
 
@@ -421,7 +436,6 @@ class CableTemplate():
 
         self.knot_sum_as_k_valus = eval(self.knot_formula)
         self._cable = CableSum(self.knot_sum_as_k_valus)
-
         self._q_vector = [2 * k_val + 1 for k_val in k]
 
     @property
@@ -466,7 +480,6 @@ class CableTemplate():
         o_formula = re.sub(r'\d+', lambda x: str(int(x.group()) + shift),
                            other.knot_formula)
         return self + CableTemplate(o_formula)
-
 
     def __add__(self, other):
         knot_formula = self.knot_formula[:-1] + ",\n" + other.knot_formula[1:]
