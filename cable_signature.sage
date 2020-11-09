@@ -1,16 +1,31 @@
 #!/usr/bin/env sage -python
+
 import numpy as np
 import itertools as it
-import matplotlib.pyplot as plt
-
 import warnings
 import re
-import inspect
-
 from typing import Iterable
 from collections import Counter
 from sage.arith.functions import LCM_list
+import importlib
 
+def import_sage(module_name):
+
+    importlib.invalidate_caches()
+    sage_name = module_name + ".sage"
+    python_name = module_name + ".sage.py"
+
+    if os.path.isfile(sage_name):
+        os.system('sage --preparse {}'.format(sage_name));
+        os.system('mv {} {}.py'.format(python_name, module_name))
+
+    if module_name in sys.modules:
+        return importlib.reload(sys.modules[module_name])
+    return importlib.import_module(module_name, package=None)
+sig = import_sage('signature')
+
+
+# #############################################################################
 # 9.11 (9.8)
 # 9.15 (9.9)
 PLOTS_DIR = "plots"
@@ -18,8 +33,8 @@ PLOTS_DIR = "plots"
 class CableSummand():
 
     def __init__(self, knot_as_k_values):
-        self.knot_as_k_values = knot_as_k_values
 
+        self.knot_as_k_values = knot_as_k_values
         self.knot_description = self.get_summand_descrption(knot_as_k_values)
         self.signature_as_function_of_theta = \
                                 self.get_summand_signature_as_theta_function()
@@ -90,14 +105,14 @@ class CableSummand():
                 results.append((e * ksi, -1 * sgn(k_n)))
                 results.append((1 - e * ksi, 1 * sgn(k_n)))
 
-        return SignatureFunction(values=results)
+        return sig.SignatureFunction(values=results)
 
     @classmethod
     def get_satellite_part(cls, *knot_as_k_values, theta=0):
         patt_k = knot_as_k_values[-1]
         ksi = 1/(2 * abs(patt_k) + 1)
 
-        satellite_part = SignatureFunction()
+        satellite_part = sig.SignatureFunction()
         # For each knot summand consider k values in reversed order,
         # ommit k value for pattern.
         for layer_num, k in enumerate(knot_as_k_values[:-1][::-1]):
@@ -120,7 +135,7 @@ class CableSummand():
                            for a in range(k)})
         counter.update(Counter({(2 * a + 1)/(2 * q) : sgn(j)
                            for a in range(k + 1, q)}))
-        return SignatureFunction(counter=counter)
+        return sig.SignatureFunction(counter=counter)
 
     def get_summand_signature_as_theta_function(self):
         knot_as_k_values = self.knot_as_k_values
@@ -168,7 +183,8 @@ class CableSummand():
         if save_path is not None:
             file_name = self.get_file_name_for_summand_plot(theta)
             save_path = os.path.join(save_path, file_name)
-        pp.plot_sum_with_other(sp, title=title, save_path=save_path)
+        sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
+                                              save_path=save_path)
 
     def plot_summand(self):
         range_limit = min(self.knot_as_k_values[-1] + 1, 3)
@@ -178,10 +194,12 @@ class CableSummand():
 class CableSum():
 
     def __init__(self, knot_sum):
+
         self.knot_sum_as_k_valus = knot_sum
         self.knot_description = self.get_knot_descrption(knot_sum)
         self.patt_k_list = [abs(i[-1]) for i in knot_sum]
         self.patt_q_list = [2 * i + 1 for i in self.patt_k_list]
+
         if any(n not in Primes() for n in self.patt_q_list):
             msg = "Incorrect k- or q-vector. This implementation assumes that"\
                   + " all last q values are prime numbers.\n" + \
@@ -234,7 +252,8 @@ class CableSum():
             file_name = re.sub(r', ', '_', str(thetas))
             file_name = re.sub(r'[\[\]]', '', str(file_name))
             file_path = os.path.join(save_path, file_name)
-        pp.plot_sum_with_other(sp, title=title, save_path=file_path)
+        sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
+                                             save_path=file_path)
 
 
         if save_path is not None:
@@ -249,11 +268,12 @@ class CableSum():
         sf_list.append(sf_list[-1])
         # sf_list.append(sf_list[-1])
 
-        SignatureFunction.plot_many(*sf_list)
+        sig.SignaturePloter.plot_many(*sf_list)
             #     pp, sp, sf = knot.signature_as_function_of_theta(thetas[i])
             #     (pp + sp) = sp.plot
             #
-            # pp.plot_sum_with_other(sp, title=title, save_path=file_path)
+            # sig.SignatureFunction.plot_sum_of_two(pp, sp, title=title,
+            #                                      save_path=file_path)
 
 
 
@@ -311,8 +331,8 @@ class CableSum():
                 verbose = kwargs['verbose']
             thetas = self.parse_thetas(*thetas)
 
-            satellite_part = SignatureFunction()
-            pattern_part = SignatureFunction()
+            satellite_part = sig.SignatureFunction()
+            pattern_part = sig.SignatureFunction()
 
             # for each cable knot (summand) in cable sum apply theta
             for i, knot in enumerate(self.knot_summands):
@@ -357,7 +377,7 @@ class CableSum():
                 shifted_thetas = [shift * th for th in thetas]
                 pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
                 limit = 5 + np.count_nonzero(shifted_thetas)
-                extremum = abs(sf.extremum(limit=limit))
+                extremum = abs(sf.extremum(limit=limit)[1])
                 if shift > 1:
                     print(shifted_thetas, end=" ")
                     print(extremum)
@@ -509,7 +529,7 @@ CableSum.get_signature_as_function_of_theta.__doc__ = \
     k - parameters for a cable: parameters k_i (i=1,.., n-1) for satelit knots
     T(2, 2k_i + 1) and - the last one - k_n for a pattern knot T(2, 2k_n + 1).
     Returns a function that will take theta vector as an argument and return
-    an object SignatureFunction.
+    an object sig.SignatureFunction.
 
     To calculate signature function for a cable sum and a theta values vector,
     use as below.
@@ -555,7 +575,7 @@ CableSum.get_signature_as_function_of_theta.__doc__ = \
 
 get_summand_signture_function_docsting = \
     """
-    This function returns SignatureFunction for previously defined single
+    This function returns sig.SignatureFunction for previously defined single
     cable T_(2, q) and a theta given as an argument.
     The cable was defined by calling function
     get_summand_signature_as_theta_function(*arg)
@@ -570,7 +590,7 @@ signature_as_function_of_theta_docstring = \
     """
     Arguments:
 
-    Returns object of SignatureFunction class for a previously defined
+    Returns object of sig.SignatureFunction class for a previously defined
     connected sum of len(arg) cables.
     Accept len(arg) arguments: for each cable one theta parameter.
     If call with no arguments, all theta parameters are set to be 0.
@@ -583,7 +603,7 @@ signature_as_function_of_theta_docstring = \
 #                 T(2, q_n) is a pattern knot for a single cable from a cable sum
 #         theta:  twist/character for the cable (value form v vector)
 #     Return:
-#         SignatureFunction created for pattern signature function
+#         sig.SignatureFunction created for pattern signature function
 #         for a given cable and theta/character
 #     Based on:
 #         Proposition 9.8. in Twisted Blanchfield Pairing
@@ -596,6 +616,6 @@ signature_as_function_of_theta_docstring = \
 #         n integers that encode a single cable, i.e.
 #         values of q_i for T(2,q_0; 2,q_1; ... 2, q_n)
 #     Return:
-#         a function that returns SignatureFunction for this single cable
+#         a function that returns sig.SignatureFunction for this single cable
 #         and a theta given as an argument
 #     """

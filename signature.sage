@@ -1,20 +1,31 @@
 #!/usr/bin/env sage -python
-import numpy as np
-import itertools as it
-from typing import Iterable
+
 from collections import Counter
-from sage.arith.functions import LCM_list
-import warnings
-import re
 import matplotlib.pyplot as plt
 import inspect
 from PIL import Image
 from pathlib import Path
+import warnings
+
 # 9.11 (9.8)
 # 9.15 (9.9)
 
 
-class SignatureFunction():
+JUPYTER = 'ipykernel'
+IPy_TERMINAL = 'IPython'
+
+def get_ipython_info():
+    if JUPYTER in sys.modules:
+        return JUPYTER
+    elif IPy_TERMINAL in sys.modules:
+        return IPy_TERMINAL
+    return False
+
+global ipython_info
+ipython_info = get_ipython_info()
+
+
+class SignatureFunction:
 
     def __init__(self, values=None, counter=None, plot_title=''):
 
@@ -104,35 +115,43 @@ class SignatureFunction():
         counter = Counter({mod_one(2 * k) : v for k, v in items if k >= 1/2})
         return SignatureFunction(counter=counter)
 
-
     def is_zero_everywhere(self):
         return not any(self.jumps_counter.values())
 
-
-    def extremum(self, limit=None):
-        max = 0
+    def extremum(self, limit=math.inf):
+        max_point = (0, 0)
         current = 0
         items = sorted(self.jumps_counter.items())
         for arg, jump in items:
             current += 2 * jump
             assert current == self(arg) + jump
-            if abs(current) > abs(max):
-                max = current
-                if limit is not None:
-                    if abs(max) > limit:
-                        break
-        return max
+            if abs(current) > abs(max_point[1]):
+                max_point  = (arg, current)
+                if abs(current) > limit:
+                    break
+        return max_point
 
     def total_sign_jump(self):
         # Total signature jump is the sum of all jumps.
         return sum([j[1] for j in sorted(self.jumps_counter.items())])
 
-    @staticmethod
-    def plot_many(*sf_list, save_path=None, title='',):
+    def plot(self, *args, **kargs):
+        SignaturePloter.plot(self, *args, **kargs)
+
+
+class SignaturePloter:
+
+    @classmethod
+    def plot_many(cls, *sf_list, save_path=None, title='',):
+
         axes_num = len(sf_list)
         if axes_num > 36:
             sf_list = sf_list[36]
             axes_num = 36
+            msg = "To many functions for the plot were given. "
+            msg += "Only 36 can be plotted "
+            warnings.warn(msg)
+
             # print war, set val in conf
         rows = ceil(sqrt(axes_num))
         cols = ceil(axes_num/rows)
@@ -146,55 +165,21 @@ class SignatureFunction():
                      ax=axes_matrix[row][col],
                      title=sf.plot_title)
 
+        fig.suptitle(title)
         plt.tight_layout()
-        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
-        save_path = Path(save_path).with_suffix('.png')
 
-        plt.savefig(save_path)
-        plt.close()
-        image = Image.open(save_path)
-        image.show()
+        cls.show_and_save(save_path)
 
-        return
+    @classmethod
+    def plot_sum_of_two(cls, sf1, sf2, save_path=None, title=''):
 
+        sf = sf1 + sf2
+        fig, axes_matrix = plt.subplots(2, 2, sharey=True, figsize=(10,5))
 
         sf1.plot(subplot=True,
-                ax=axes_matrix[1][0],
-                color='red',
-                linestyle='dotted')
-
-        sf2.plot(subplot=True,
-                ax=axes_matrix[0][0],
-                color='black')
-
-        sf3.plot(subplot=True,
-                ax=axes_matrix[1][1],
-                alpha=0.3)
-
-        fig.suptitle(title)
-
-        plt.tight_layout()
-        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
-        save_path = Path(save_path).with_suffix('.png')
-
-        plt.savefig(save_path)
-        plt.close()
-        image = Image.open(save_path)
-        image.show()
-
-    def plot_sum_with_other(self, other,
-                            save_path=None, title=''):
-        tp = self
-        up = other
-        sf = tp + up
-
-        fig, axes_matrix = plt.subplots(2, 2, sharey=True,
-                                        figsize=(10,5))
-
-        tp.plot(subplot=True,
                 ax=axes_matrix[0][1])
 
-        up.plot(subplot=True,
+        sf2.plot(subplot=True,
                 ax=axes_matrix[1][0],
                 color='red',
                 linestyle='dotted')
@@ -203,11 +188,11 @@ class SignatureFunction():
                 ax=axes_matrix[0][0],
                 color='black')
 
-        tp.plot(subplot=True,
+        sf1.plot(subplot=True,
                 ax=axes_matrix[1][1],
                 alpha=0.3)
 
-        up.plot(subplot=True,
+        sf2.plot(subplot=True,
                 ax=axes_matrix[1][1],
                 color='red', alpha=0.3,
                 linestyle='dotted')
@@ -218,22 +203,12 @@ class SignatureFunction():
                 alpha=0.7,)
 
         fig.suptitle(title)
-
         plt.tight_layout()
 
-        save_path = save_path or os.path.join(os.getcwd(),"tmp.png")
-        save_path = Path(save_path)
-        save_path = save_path.with_suffix('.png')
+        cls.show_and_save(save_path)
 
-
-        # print(save_as)
-
-        plt.savefig(save_path)
-        plt.close()
-        image = Image.open(save_path)
-        image.show()
-
-    def plot(self, subplot=False, ax=None, save_as='sf',
+    @classmethod
+    def plot(cls, sf, subplot=False, ax=None, save_path=None,
              title="",
              alpha=1,
              color='blue',
@@ -243,8 +218,8 @@ class SignatureFunction():
         if ax is None:
             fig, ax = plt.subplots(1, 1)
 
-        keys = sorted(self.jumps_counter.keys())
-        y = [self(k) + self.jumps_counter[k] for k in keys]
+        keys = sorted(sf.jumps_counter.keys())
+        y = [sf(k) + sf.jumps_counter[k] for k in keys]
         xmax = keys[1:]
         xmin = keys[:-1]
 
@@ -255,20 +230,37 @@ class SignatureFunction():
         if subplot:
             return ax
 
-        save_as += ".png"
-        plt.savefig(save_as)
-        plt.close()
-        image = Image.open(save_as)
-        image.show()
+        cls.show_and_save(save_path)
 
-    def step_function_data(self):
+    @staticmethod
+    def show_and_save(save_path):
+
+        if save_path is not None:
+            save_path = Path(save_path)
+            save_path = save_path.with_suffix('.png')
+            plt.savefig(save_path)
+
+        if ipython_info == JUPYTER:
+            plt.show()
+
+        elif True:  # save_path is None:
+            plt.savefig('tmp.png')
+            plt.close()
+            image = Image.open('tmp.png')
+            image.show()
+            # msg = "For interactive shell set save_path."
+            # warnings.warn(msg)
+
+    @staticmethod
+    def step_function_data(sf):
         # Transform the signature jump data to a format understandable
         # by the plot function.
-        result = [(k, self.sf(k) + self.jumps_counter[k])
-                 for k in sorted(self.jumps_counter.keys())]
+        result = [(k, sf.sf(k) + sf.jumps_counter[k])
+                 for k in sorted(sf.jumps_counter.keys())]
         return result
 
-    def tikz_plot(self, save_as):
+    @staticmethod
+    def tikz_plot(sf, save_as):
         plt_sin = plot(sin(x), (x, 0, 2*pi))
         # plt_sin.show()
         plt_sin.save("MyPic.pdf")
