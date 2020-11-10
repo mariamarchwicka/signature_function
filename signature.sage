@@ -142,7 +142,7 @@ class SignatureFunction:
 class SignaturePloter:
 
     @classmethod
-    def plot_many(cls, *sf_list, save_path=None, title='',):
+    def plot_many(cls, *sf_list, save_path=None, title='', cols=None):
 
         axes_num = len(sf_list)
         if axes_num > 36:
@@ -153,11 +153,14 @@ class SignaturePloter:
             warnings.warn(msg)
 
             # print war, set val in conf
-        rows = ceil(sqrt(axes_num))
-        cols = ceil(axes_num/rows)
+        cols = cols or ceil(sqrt(axes_num))
+        rows = ceil(axes_num/cols)
         fig, axes_matrix = plt.subplots(rows, cols,
-                                        sharey=True,
-                                        sharex=True,)
+                                        sharex='col', sharey='row',
+                                        gridspec_kw={'hspace': 0, 'wspace': 0},
+                                        # sharey=True,
+                                        # sharex=True,
+                                        )
         for i, sf in enumerate(sf_list):
             col = i % cols
             row = (i - col)/cols

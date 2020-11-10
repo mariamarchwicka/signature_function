@@ -243,6 +243,7 @@ class CableSum():
             save_path = os.path.join(save_path, dir_name)
         else:
             save_path = None
+
         for i, knot in enumerate(self.knot_summands):
             knot.plot_summand_for_theta(thetas[i], save_path=save_path)
 
@@ -255,28 +256,16 @@ class CableSum():
         sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
                                              save_path=file_path)
 
-
         if save_path is not None:
             file_path = os.path.join(save_path, "all_" + file_name)
         sf_list = [knot.signature_as_function_of_theta(thetas[i])[2]
                     for i, knot in enumerate(self.knot_summands)]
-        sf_list.append(sf_list[-1])
-        sf_list.append(sf_list[-1])
-        sf_list.append(sf_list[-1])
-        sf_list.append(sf_list[-1])
-        sf_list.append(sf_list[-1])
-        sf_list.append(sf_list[-1])
-        # sf_list.append(sf_list[-1])
-
-        sig.SignaturePloter.plot_many(*sf_list)
+        sig.SignaturePloter.plot_many(*sf_list, cols=2)
             #     pp, sp, sf = knot.signature_as_function_of_theta(thetas[i])
             #     (pp + sp) = sp.plot
             #
             # sig.SignatureFunction.plot_sum_of_two(pp, sp, title=title,
             #                                      save_path=file_path)
-
-
-
 
 
         return dir_name
@@ -377,7 +366,8 @@ class CableSum():
                 shifted_thetas = [shift * th for th in thetas]
                 pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
                 limit = 5 + np.count_nonzero(shifted_thetas)
-                extremum = abs(sf.extremum(limit=limit)[1])
+                ext = sf.extremum(limit=limit)[1]
+                extremum = abs(ext)
                 if shift > 1:
                     print(shifted_thetas, end=" ")
                     print(extremum)
@@ -387,7 +377,7 @@ class CableSum():
                 elif shift == 1:
                     print("*" * 10)
                     print(shifted_thetas, end=" ")
-                    print(extremum)
+                    print(ext)
             if signature_is_small:
                 print("\n" * 10 + "!" * 1000)
                 return False
@@ -416,7 +406,7 @@ class CableSum():
 class CableTemplate():
 
     def __init__(self, knot_formula, q_vector=None, k_vector=None,
-                 generate_q_vector=True, slice_candidate=True):
+                 generate_q_vector=True, slice=True):
         self._knot_formula = knot_formula
         # q_i = 2 * k_i + 1
         if k_vector is not None:
@@ -424,7 +414,7 @@ class CableTemplate():
         elif q_vector is not None:
             self.q_vector = q_vector
         elif generate_q_vector:
-            self.q_vector = self.get_q_vector(knot_formula, slice_candidate)
+            self.q_vector = self.get_q_vector(slice=slice)
 
     @property
     def cable(self):
@@ -436,7 +426,7 @@ class CableTemplate():
         return self._cable
 
     def fill_q_vector(self, q_vector=None, slice=True):
-        self.q_vector = q_vector or self.get_q_vector(self.knot_formula, slice)
+        self.q_vector = q_vector or self.get_q_vector(slice)
 
     @property
     def knot_formula(self):
@@ -471,12 +461,12 @@ class CableTemplate():
         numbers = map(int, numbers)
         return max(numbers)
 
-    @classmethod
-    def get_q_vector(cls, knot_formula, slice=True):
+    def get_q_vector(self, slice=True):
+        knot_formula = self.knot_formula
         lowest_number = 2
-        q_vector = [0] * (cls.extract_max(knot_formula) + 1)
+        q_vector = [0] * (self.extract_max(knot_formula) + 1)
         P = Primes()
-        for layer in cls.get_layers_from_formula(knot_formula)[::-1]:
+        for layer in self.get_layers_from_formula(knot_formula)[::-1]:
             for el in layer:
                 q_vector[el] = P.next(lowest_number)
                 lowest_number = q_vector[el]
