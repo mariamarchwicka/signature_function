@@ -9,6 +9,10 @@ from collections import Counter
 from sage.arith.functions import LCM_list
 import importlib
 
+
+SIGMA = 0
+SIGNATURE = 1
+
 def import_sage(module_name):
 
     importlib.invalidate_caches()
@@ -40,7 +44,7 @@ class CableSummand():
         self.signature_as_function_of_theta = \
                                 self.get_summand_signature_as_theta_function()
         self.sigma_as_function_of_theta = \
-                                self.get_sigma_function()
+                                self.get_sigma_as_function_of_theta()
 
     @staticmethod
     def get_summand_descrption(knot_as_k_values):
@@ -194,33 +198,29 @@ class CableSummand():
         for theta in range(range_limit):
             self.plot_summand_for_theta(theta)
 
-    def get_sigma_function(self):
+    def get_sigma_as_function_of_theta(self):
 
         last_k = self.knot_as_k_values[-1]
         last_q = 2 * abs(last_k) + 1
         ksi = 1/last_q
 
-        def sigma_function(theta, print_results=False):
+        def sigma_as_function_of_theta(theta, print_results=False):
             # satellite part (Levine-Tristram signatures)
-            sp = 0
+            satellite_part = 0
             for i, k in enumerate(self.knot_as_k_values[:-1][::-1]):
                 # print("layer")
                 layer_num = i + 1
                 sigma_q = self.get_untwisted_signature_function(k)
                 # print(sigma_q(ksi * theta * layer_num))
                 # print(sigma_q)
-                satelit_part = 2 * sigma_q(ksi * theta * layer_num) * sign(k)
-                sp += satelit_part
+                sp = 2 * sigma_q(ksi * theta * layer_num) * sign(k)
+                satellite_part += sp
             if theta:
                 pp = (-last_q + 2 * theta - 2 * (theta^2/last_q)) * sign(last_k)
             else:
                 pp = 0
-            result = pp + sp
-            # print("pp = ", pp )
-            # print("sp = ", sp)
-            # print(result)
-            return result
-        return sigma_function
+            return pp + satellite_part
+        return sigma_as_function_of_theta
 
 
 
@@ -248,7 +248,6 @@ class CableSum():
                         self.get_signature_as_function_of_theta()
         self.sigma_as_function_of_theta = \
                         self.get_sigma_as_function_of_theta()
-
 
 
     def __call__(self, *thetas):
@@ -333,7 +332,6 @@ class CableSum():
                 raise TypeError(msg)
         return tuple(thetas)
 
-
     @staticmethod
     def get_knot_descrption(knot_sum):
         description = ""
@@ -346,7 +344,15 @@ class CableSum():
             description = description[:-2] + ") # "
         return description[:-3]
 
-
+    def get_sigma_as_function_of_theta(self):
+        def sigma_as_function_of_theta(*thetas, **kwargs):
+            thetas = self.parse_thetas(*thetas)
+            result = 0
+            for i, knot in enumerate(self.knot_summands):
+                sigma_of_th = knot.sigma_as_function_of_theta
+                result += sigma_of_th(thetas[i])
+            return result
+        return sigma_as_function_of_theta
 
     def get_signature_as_function_of_theta(self, **key_args):
         if 'verbose' in key_args:
@@ -425,7 +431,7 @@ class CableSum():
                 return False
         return True
 
-    def is_signature_big_for_all_metabolizers(self):
+    def is_function_big_for_all_metabolizers(self, function_type=SIGMA):
         num_of_summands = len(self.knot_sum_as_k_valus)
         if num_of_summands % 4:
             f_name = self.is_signature_big_for_all_metabolizers.__name__
@@ -438,23 +444,15 @@ class CableSum():
             ranges_list[shift : shift + 3] = \
                 [range(0, i + 1) for i in self.patt_k_list[shift: shift + 3]]
             ranges_list[shift + 3] = range(0, 2)
-            if not self.is_signature_big_in_ranges(ranges_list):
-                return False
+            if function_type == SIGNATURE:
+                if not self.is_signature_big_in_ranges(ranges_list):
+                    return False
             else:
-                print("\nOK")
+                if not self.is_sigma_big_in_ranges(ranges_list):
+                    return False
+            print("\nOK")
+
         return True
-
-
-
-    def get_sigma_as_function_of_theta(self):
-        def sigma_as_function_of_theta(*thetas, **kwargs):
-            thetas = self.parse_thetas(*thetas)
-            result = 0
-            for i, knot in enumerate(self.knot_summands):
-                sigma_of_th = knot.sigma_as_function_of_theta
-                result += sigma_of_th(thetas[i])
-            return result
-        return sigma_as_function_of_theta
 
 
     def is_sigma_big_in_ranges(self, ranges_list):
@@ -473,7 +471,7 @@ class CableSum():
                 # pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
                 limit = 5 + np.count_nonzero(shifted_thetas)
                 ext = self.sigma_as_function_of_theta(shifted_thetas)
-                print(ext)
+                # print(ext)
                 extremum = abs(ext)
                 if shift > 1:
                     print(shifted_thetas, end=" ")
@@ -490,24 +488,6 @@ class CableSum():
                 return False
         return True
 
-    def is_sigma_big_for_all_metabolizers(self):
-        num_of_summands = len(self.knot_sum_as_k_valus)
-        if num_of_summands % 4:
-            f_name = self.is_sima_big_for_all_metabolizers.__name__
-            msg = "Function {}".format(f_name) + " is implemented only for " +\
-                  "knots that are direct sums of 4n direct summands."
-            raise ValueError(msg)
-
-        for shift in range(0, num_of_summands, 4):
-            ranges_list = num_of_summands * [range(0, 1)]
-            ranges_list[shift : shift + 3] = \
-                [range(0, i + 1) for i in self.patt_k_list[shift: shift + 3]]
-            ranges_list[shift + 3] = range(0, 2)
-            if not self.is_sigma_big_in_ranges(ranges_list):
-                return False
-            else:
-                print("\nOK")
-        return True
 
 
 
