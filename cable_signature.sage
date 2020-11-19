@@ -37,8 +37,9 @@ PLOTS_DIR = "plots"
 class CableSummand():
 
 
-    def __init__(self, knot_as_k_values):
+    def __init__(self, knot_as_k_values, verbose=False):
 
+        self.verbose = verbose
         self.knot_as_k_values = knot_as_k_values
         self.knot_description = self.get_summand_descrption(knot_as_k_values)
         self.signature_as_function_of_theta = \
@@ -198,19 +199,25 @@ class CableSummand():
         for theta in range(range_limit):
             self.plot_summand_for_theta(theta)
 
-    def get_sigma_as_function_of_theta(self):
+    def get_sigma_as_function_of_theta(self, verbose=None):
 
+        default_verbose = verbose or self.verbose
         last_k = self.knot_as_k_values[-1]
         last_q = 2 * abs(last_k) + 1
         ksi = 1/last_q
 
-        def sigma_as_function_of_theta(theta, print_results=False):
+        def sigma_as_function_of_theta(theta, verbose=None, details=None):
+            verbose = verbose or default_verbose
+            details = details or verbose
             # satellite part (Levine-Tristram signatures)
             satellite_part = 0
+
             for i, k in enumerate(self.knot_as_k_values[:-1][::-1]):
                 # print("layer")
                 layer_num = i + 1
                 sigma_q = self.get_untwisted_signature_function(k)
+                if details:
+
                 # print(sigma_q(ksi * theta * layer_num))
                 # print(sigma_q)
                 sp = 2 * sigma_q(ksi * theta * layer_num) * sign(k)
@@ -219,6 +226,11 @@ class CableSummand():
                 pp = (-last_q + 2 * theta - 2 * (theta^2/last_q)) * sign(last_k)
             else:
                 pp = 0
+            if verbose:
+                print(self.knot_description + ", theta = " + str(theta))
+                print("pp = " + str(pp), end=', ')
+                print("satellite_part = " + str(satellite_part))
+
             return pp + satellite_part
         return sigma_as_function_of_theta
 
@@ -229,8 +241,9 @@ class CableSummand():
 
 class CableSum():
 
-    def __init__(self, knot_sum):
+    def __init__(self, knot_sum, verbose=False):
 
+        self.verbose = verbose
         self.knot_sum_as_k_valus = knot_sum
         self.knot_description = self.get_knot_descrption(knot_sum)
         self.patt_k_list = [abs(i[-1]) for i in knot_sum]
@@ -243,7 +256,7 @@ class CableSum():
             raise ValueError(msg)
         self.q_order = LCM_list(self.patt_q_list)
 
-        self.knot_summands = [CableSummand(k) for k in knot_sum]
+        self.knot_summands = [CableSummand(k, verbose) for k in knot_sum]
         self.signature_as_function_of_theta = \
                         self.get_signature_as_function_of_theta()
         self.sigma_as_function_of_theta = \
@@ -286,20 +299,20 @@ class CableSum():
         for i, knot in enumerate(self.knot_summands):
             knot.plot_summand_for_theta(thetas[i], save_path=save_path)
 
-        pp, sp, sf = self.signature_as_function_of_theta(*thetas)
-        title = self.knot_description + ", thetas = " + str(thetas)
-        if save_path is not None:
-            file_name = re.sub(r', ', '_', str(thetas))
-            file_name = re.sub(r'[\[\]]', '', str(file_name))
-            file_path = os.path.join(save_path, file_name)
-        sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
-                                             save_path=file_path)
-
-        if save_path is not None:
-            file_path = os.path.join(save_path, "all_" + file_name)
-        sf_list = [knot.signature_as_function_of_theta(thetas[i])[2]
-                    for i, knot in enumerate(self.knot_summands)]
-        sig.SignaturePloter.plot_many(*sf_list, cols=2)
+        # pp, sp, sf = self.signature_as_function_of_theta(*thetas)
+        # title = self.knot_description + ", thetas = " + str(thetas)
+        # if save_path is not None:
+        #     file_name = re.sub(r', ', '_', str(thetas))
+        #     file_name = re.sub(r'[\[\]]', '', str(file_name))
+        #     file_path = os.path.join(save_path, file_name)
+        # sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
+        #                                      save_path=file_path)
+        #
+        # if save_path is not None:
+        #     file_path = os.path.join(save_path, "all_" + file_name)
+        # sf_list = [knot.signature_as_function_of_theta(thetas[i])[2]
+        #             for i, knot in enumerate(self.knot_summands)]
+        # sig.SignaturePloter.plot_many(*sf_list, cols=2)
             #     pp, sp, sf = knot.signature_as_function_of_theta(thetas[i])
             #     (pp + sp) = sp.plot
             #
@@ -390,6 +403,10 @@ class CableSum():
                             signature_as_function_of_theta_docstring
         return signature_as_function_of_theta
 
+    def get_sign_ext_for_theta(self, thetas, limit):
+        _, _, sf = self.signature_as_function_of_theta(*thetas)
+        return sf.extremum(limit=limit)[1]
+
     def is_metabolizer(self, theta):
         # Check if square alternating difference
         # divided by last q value is integer.
@@ -399,7 +416,13 @@ class CableSum():
         #     old_sum += (el^2 / self.patt_q_list[idx] * (-1)^idx)
         return result.is_integer()
 
-    def is_signature_big_in_ranges(self, ranges_list):
+    def is_function_big_in_ranges(self, ranges_list, invariant=SIGMA,
+                                  verbose=None):
+        verbose = verbose or self.verbose
+        if invariant == SIGNATURE:
+            get_invariant = self.get_sign_ext_for_theta
+        else:
+            get_invariant = self.sigma_as_function_of_theta
 
         for thetas in it.product(*ranges_list):
 
@@ -407,31 +430,34 @@ class CableSum():
             if not self.is_metabolizer(thetas) or not any(thetas):
                 continue
 
-            signature_is_small = True
+            function_is_small = True
             # Check if any element generated by thetas vector
             # has a large signature.
             for shift in range(1, self.q_order):
                 shifted_thetas = [shift * th for th in thetas]
-                pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
                 limit = 5 + np.count_nonzero(shifted_thetas)
-                ext = sf.extremum(limit=limit)[1]
-                extremum = abs(ext)
+
+                # pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
+                inv_value = get_invariant(shifted_thetas, limit=limit)
+                # print(ext)
+                abs_value = abs(inv_value)
                 if shift > 1:
                     print(shifted_thetas, end=" ")
-                    print(extremum)
-                if extremum > limit:
-                    signature_is_small = False
-                    break
-                elif shift == 1:
+                    print(inv_value)
+                elif shift == 1 and verbose:
                     print("*" * 10)
                     print(shifted_thetas, end=" ")
-                    print(ext)
-            if signature_is_small:
+                    print(inv_value)
+
+                if abs_value > limit:
+                    function_is_small = False
+                    break
+            if function_is_small:
                 print("\n" * 10 + "!" * 1000)
                 return False
         return True
 
-    def is_function_big_for_all_metabolizers(self, function_type=SIGMA):
+    def is_function_big_for_all_metabolizers(self, invariant=SIGMA):
         num_of_summands = len(self.knot_sum_as_k_valus)
         if num_of_summands % 4:
             f_name = self.is_signature_big_for_all_metabolizers.__name__
@@ -444,61 +470,19 @@ class CableSum():
             ranges_list[shift : shift + 3] = \
                 [range(0, i + 1) for i in self.patt_k_list[shift: shift + 3]]
             ranges_list[shift + 3] = range(0, 2)
-            if function_type == SIGNATURE:
-                if not self.is_signature_big_in_ranges(ranges_list):
-                    return False
-            else:
-                if not self.is_sigma_big_in_ranges(ranges_list):
-                    return False
+            if not self.is_function_big_in_ranges(ranges_list, invariant):
+                return False
             print("\nOK")
 
         return True
-
-
-    def is_sigma_big_in_ranges(self, ranges_list):
-
-        for thetas in it.product(*ranges_list):
-
-            # Check only non-zero metabolizers.
-            if not self.is_metabolizer(thetas) or not any(thetas):
-                continue
-
-            signature_is_small = True
-            # Check if any element generated by thetas vector
-            # has a large signature.
-            for shift in range(1, self.q_order):
-                shifted_thetas = [shift * th for th in thetas]
-                # pp, sp, sf= self.signature_as_function_of_theta(*shifted_thetas)
-                limit = 5 + np.count_nonzero(shifted_thetas)
-                ext = self.sigma_as_function_of_theta(shifted_thetas)
-                # print(ext)
-                extremum = abs(ext)
-                if shift > 1:
-                    print(shifted_thetas, end=" ")
-                    print(extremum)
-                if extremum > limit:
-                    signature_is_small = False
-                    break
-                elif shift == 1:
-                    print("*" * 10)
-                    print(shifted_thetas, end=" ")
-                    print(ext)
-            if signature_is_small:
-                print("\n" * 10 + "!" * 1000)
-                return False
-        return True
-
-
-
-
-
 
 
 
 class CableTemplate():
 
     def __init__(self, knot_formula, q_vector=None, k_vector=None,
-                 generate_q_vector=True, slice=True):
+                 generate_q_vector=True, slice=True, verbose=False):
+        self.verbose = verbose
         self._knot_formula = knot_formula
         # q_i = 2 * k_i + 1
         if k_vector is not None:
@@ -537,7 +521,7 @@ class CableTemplate():
             raise IndexError(msg)
 
         self.knot_sum_as_k_valus = eval(self.knot_formula)
-        self._cable = CableSum(self.knot_sum_as_k_valus)
+        self._cable = CableSum(self.knot_sum_as_k_valus, verbose=self.verbose)
         self._q_vector = [2 * k_val + 1 for k_val in k]
 
     @property
