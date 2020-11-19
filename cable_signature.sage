@@ -217,6 +217,7 @@ class CableSummand():
                 layer_num = i + 1
                 sigma_q = self.get_untwisted_signature_function(k)
                 if details:
+                    pass
 
                 # print(sigma_q(ksi * theta * layer_num))
                 # print(sigma_q)
