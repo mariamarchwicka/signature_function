@@ -44,8 +44,11 @@ class CableSummand():
         self.knot_description = self.get_summand_descrption(knot_as_k_values)
         self.signature_as_function_of_theta = \
                                 self.get_summand_signature_as_theta_function()
-        self.sigma_as_function_of_theta = \
-                                self.get_sigma_as_function_of_theta()
+        if verbose:
+            s = self.get_verbose_sigma_as_function_of_theta(verbose=True)
+        else:
+            s = self.get_sigma_as_function_of_theta()
+        self.sigma_as_function_of_theta = s
 
     @staticmethod
     def get_summand_descrption(knot_as_k_values):
@@ -192,14 +195,14 @@ class CableSummand():
             file_name = self.get_file_name_for_summand_plot(theta)
             save_path = os.path.join(save_path, file_name)
         sig.SignaturePloter.plot_sum_of_two(pp, sp, title=title,
-                                              save_path=save_path)
+                                            save_path=save_path)
 
     def plot_summand(self):
         range_limit = min(self.knot_as_k_values[-1] + 1, 3)
         for theta in range(range_limit):
             self.plot_summand_for_theta(theta)
 
-    def get_sigma_as_function_of_theta(self, verbose=None):
+    def get_verbose_sigma_as_function_of_theta(self, verbose=None):
 
         default_verbose = verbose or self.verbose
         last_k = self.knot_as_k_values[-1]
@@ -211,28 +214,63 @@ class CableSummand():
             details = details or verbose
             # satellite part (Levine-Tristram signatures)
             satellite_part = 0
+            if verbose:
+                print(3 * "\n" + 10 * "#" + " " + self.knot_description +
+                      " " + 10 * "#" + "\n")
 
+            for layer_num, k in enumerate(self.knot_as_k_values[::-1]):
+
+                sigma_q = self.get_untwisted_signature_function(k)
+                arg = ksi * theta * layer_num
+                sp = sigma_q(arg)
+                satellite_part += 2 * sp
+
+                if details and arg:
+                    label = "ksi * theta * layer_num = " + str(arg)
+                    title = self.knot_description + ", layer " + str(layer_num)
+                    title += ", theta = " + str(theta)
+                    sigma_q.plot(special_point=(mod_one(arg), sp),
+                                 special_label=label,
+                                 title=title,)
+
+            if theta:
+                pp = (-last_q + 2 * theta - 2 * (theta^2/last_q)) * sign(last_k)
+            else:
+                pp = 0
+            sigma = pp + satellite_part
+            if verbose and theta:
+                print(self.knot_description + ", theta = " + str(theta))
+                print("pp = " + str(pp), end=', ')
+                print("satellite_part = " + str(satellite_part) + "\n")
+            if verbose:
+                print("sigma({}) = {}".format(self.knot_description,
+                                              pp + satellite_part))
+
+            return pp, satellite_part, sigma
+        return sigma_as_function_of_theta
+
+
+
+
+    def get_sigma_as_function_of_theta(self):
+
+        last_k = self.knot_as_k_values[-1]
+        last_q = 2 * abs(last_k) + 1
+        ksi = 1/last_q
+
+        def sigma_as_function_of_theta(theta):
+
+            satellite_part = 0
             for i, k in enumerate(self.knot_as_k_values[:-1][::-1]):
-                # print("layer")
                 layer_num = i + 1
                 sigma_q = self.get_untwisted_signature_function(k)
-                if details:
-                    pass
-
-                # print(sigma_q(ksi * theta * layer_num))
-                # print(sigma_q)
-                sp = 2 * sigma_q(ksi * theta * layer_num) * sign(k)
+                sp = 2 * sigma_q(ksi * theta * layer_num)
                 satellite_part += sp
             if theta:
                 pp = (-last_q + 2 * theta - 2 * (theta^2/last_q)) * sign(last_k)
             else:
                 pp = 0
-            if verbose:
-                print(self.knot_description + ", theta = " + str(theta))
-                print("pp = " + str(pp), end=', ')
-                print("satellite_part = " + str(satellite_part))
-
-            return pp + satellite_part
+            return pp, satellite_part, pp + satellite_part
         return sigma_as_function_of_theta
 
 
@@ -297,8 +335,8 @@ class CableSum():
         else:
             save_path = None
 
-        for i, knot in enumerate(self.knot_summands):
-            knot.plot_summand_for_theta(thetas[i], save_path=save_path)
+        for theta, knot in zip(thetas, self.knot_summands):
+            knot.plot_summand_for_theta(thetas, save_path=save_path)
 
         # pp, sp, sf = self.signature_as_function_of_theta(*thetas)
         # title = self.knot_description + ", thetas = " + str(thetas)
@@ -358,14 +396,36 @@ class CableSum():
             description = description[:-2] + ") # "
         return description[:-3]
 
-    def get_sigma_as_function_of_theta(self):
-        def sigma_as_function_of_theta(*thetas, **kwargs):
+    def get_sigma_as_function_of_theta(self, verbose=None):
+        default_verbose = verbose or self.verbose
+        def sigma_as_function_of_theta(*thetas, verbose=None, **kwargs):
+            verbose = verbose or default_verbose
             thetas = self.parse_thetas(*thetas)
-            result = 0
-            for i, knot in enumerate(self.knot_summands):
-                sigma_of_th = knot.sigma_as_function_of_theta
-                result += sigma_of_th(thetas[i])
-            return result
+            sigma_list = []
+
+            for theta, knot in zip(thetas, self.knot_summands):
+                if theta:
+                    sigma_of_th = knot.sigma_as_function_of_theta
+                    sigma_list.append(sigma_of_th(theta))
+                else:
+                    sigma_list.append((0,0,0))
+            if verbose:
+                print(100 * "*")
+                print("Calculation summary for a cable sum:\n" +
+                      self.knot_description)
+                for i, knot in enumerate(self.knot_summands):
+                    if thetas[i]:
+                        print("{}. {}".format(i, knot.knot_description))
+                        print("Pattern part = {}".format(sigma_list[i][0]))
+                        # print("Pattern part = -{}".format(knot_sum.))
+
+                        print("Satellite part = {}".format(sigma_list[i][1]))
+                        print("Sigma = {}\n".format(sigma_list[i][2]))
+
+
+
+
+            return sum(r[2] for r in sigma_list)
         return sigma_as_function_of_theta
 
     def get_signature_as_function_of_theta(self, **key_args):
@@ -386,11 +446,17 @@ class CableSum():
             pattern_part = sig.SignatureFunction()
 
             # for each cable knot (summand) in cable sum apply theta
-            for i, knot in enumerate(self.knot_summands):
-                sfth = knot.signature_as_function_of_theta
-                pp, sp, _ = sfth(thetas[i])
+            # for i, knot in enumerate(self.knot_summands):
+            #     sfth = knot.signature_as_function_of_theta
+            #     pp, sp, _ = sfth(thetas[i])
+            #     pattern_part += pp
+            #     satellite_part += sp
+            for theta, knot in zip(thetas, self.knot_summands):
+                pp, sp, _ = knot.signature_as_function_of_theta(theta)
                 pattern_part += pp
                 satellite_part += sp
+
+
             sf = pattern_part + satellite_part
 
             if verbose:
